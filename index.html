@@ -1,481 +1,461 @@
 <!DOCTYPE html>
+<!--
+========================================================================
+『魔法宝石店 エフェメラ』開発引き継ぎ書 & 設計コンセプト（v0.4 基準・HTML内蔵版）
+========================================================================
+※ 本コメント自体が最新の開発引き継ぎ書を兼ねます（別ファイル不要・Single Source of Truth）。
+  機能追加や改修を行うAI／開発者は、必ず本コメントの原則・世界観設定・チェックリストを
+  厳守し、バージョン更新時は本コメントの内容も最新状態へ同期してください。
+
+[1. プロジェクト概要・コンセプト]
+・タイトル：魔法宝石店 エフェメラ — AIインタラクティブ乙女ゲー
+・現行バージョン：v0.4
+・公開形態：単一HTMLファイル（index.html）完結型Webアプリ（GitHub Pages・Googleサイト埋め込み対応）
+・コンセプト：
+  ・外部のAIチャット（Gemini / Claude等）とコピペ往復して遊ぶ、ダークファンタジー系の
+    「シミュレーション育成×AIインタラクティブ乙女ゲー」。
+  ・3年生の4月〜翌年3月の卒業（余命1年）までのタイムリミットの中で、店先のソファーで
+    使い捨て魔法石を編んで魔力を排熱しながら、攻略対象たちとの親愛度と「人間のまま ⇔
+    グラフト（人外）」の境界ゲージを育て、エンディングへ辿り着く。
+  ・2周目（クリア後、または設定の即時スイッチ）で真相枠「仮面の講師カシウス」が解禁される。
+
+[2. 絶対に崩してはいけない設計原則（厳守事項）]
+1) 単一HTMLファイル＆完全オフライン完結（阿部寛アーキテクチャ）
+   ・HTML / CSS / JS / SVGをすべて1つのHTMLファイルに収め、外部CDN・外部ライブラリ・
+     外部サーバー通信を一切使用しない。
+2) Googleサイト埋め込み（iframe）安全対応
+   ・localStorage が例外を投げる隔離環境でも落ちない安全ラッパー（メモリフォールバック）を維持。
+   ・navigator.clipboard が弾かれる環境向けに、プロンプトは常時textareaに表示し、
+     「全選択」ボタンおよびテキスト版セーブ復元（復活の呪文）を必ず残す。
+3) 既存セーブデータ後方互換＆完全ローカル保存
+   ・localStorage キー名：ephemera_otome_v1（絶対に変更しないこと）。
+   ・立ち絵画像は IndexedDB（DB: ephemera_otome_images_v1 / Store: portraits）に
+     ローカル保存し、外部送信しない（IndexedDB不可時はメモリ/安全フォールバック）。
+   ・新フィールド追加時は createDefaultState() と migrateStateIfNeeded(st) を必ず更新する。
+4) 表現・世界観トーンの厳守
+   ・「カウチ」は使わず必ず「ソファー」表記で統一する。
+   ・導入文にヒューマニックストーンの説明を含める。
+   ・光源切替（昼光：ロイヤルブルー×白磁・金縁 ⇔ ランプ光：純黒×深紅・琥珀）と、
+     アレク（アレキサンドライト）の宝石SVG変色演出を維持する。
+   ・立ち絵は 3:4 比率クロッパー（ドラッグ移動・0.5〜3.0倍ズーム・十字ガイド線）を維持する。
+   ・z-index 階層：ヘッダー(40) ＜ 下部ナビ(50) ＜ 一般モーダル(100) ＜ クロッパー(150) ＜ トースト(200)
+
+[3. 世界観＆キャラクター設定（GMプロンプト・辞典の正本）]
+・舞台：亡き祖母マルタ（料理上手で祝福の魔法のお菓子を売っていた優しい魔法使い）から
+  受け継いだ小さなお店。学院と併設病院の近くにある。両親と祖父は一般人のため物語本筋からは離す。
+・主人公（既定名：アルフィリア／変更可）：
+  ・魔法学院・宝石魔法学専攻3年生。魔力が強すぎて併設病院の常連（国の宝＝他国流出防止の鳥籠）。
+  ・余命1年（卒業と同時期に命が尽きる予定）。1年時に学科首席「青いローブ＋金の縁取り」を取得し、
+    宝物庫へのアクセス権（生きるか死ぬか選べる状態）だけ確保して2年時のローブ枠は他者へ譲った。
+  ・店のソファーでゴロゴロしながら使い捨て魔法石（指定回数で砕け散る灯り石・回復石・ニッチ特注品）
+    を編んで魔力の毒を排熱している。
+・ヒューマニックストーン：
+  ・人々の強い想いを吸って姿を得た宝石。想いの総量が多いほど人型に近い傾向（ただし「手足になる」
+    等の切実な願いでペガサス等の姿を選ぶことも多い）。魔力ゼロでも相性次第で契約しうる。
+  ・天然石に完璧はなく、クラック充填やシールドコーティングの定期メンテナンスが不可欠。
+  ・メンテナンス中は無防備な「ただの石」へ戻って宝石魔術師に身を委ねる必要があり、
+    施術には魔力を編み上げる凄まじい集中力を要する。
+・2種類の契約：
+  1) 使役契約（通常契約）：石が「お前の命のある期間だけ付き合ってやる」有限契約。寿命は延びない。
+  2) グラフト契約（Graft）：人間側が外観等の大事なものを対価に差し出し、宝物庫のいわくつき呪物を
+     臓器（ドナー）として体内に組み込み命を繋ぐ契約。適合に失敗すると吹き飛び死する。
+     一般人からは畏怖されつつも「グラフトだから気持ち悪い」等と忌み嫌われる。
+・登場人物（7名／すべて3:4立ち絵差し込み対応）：
+  ・アルフィリア（主人公／変更可）
+  ・アレク（攻略対象①・アレキサンドライト・人外執事）：宝物庫で高熱で倒れた主人公と使役契約。
+    昼光で青緑、ランプ光で深紅に瞳と石が変色。普段は伊達メガネ。夜中の高熱時に「私を臓器に
+    しませんか」とグラフト契約を囁く。宝物庫の特級品のため併設病院の病室まで付き添いOK。
+  ・エリック（攻略対象②・遠方の国の最前線騎士）：魔力ゼロ・明日の命の保証なし。ルークの口内
+    クラックを徹夜で直してもらってから主人公を放っておけない。学院関係者ではないため併設病院に
+    立ち入れない（例外として国へ正式な婚姻申請をすれば家族として入室可／ただしルークは宝石に戻る）。
+  ・ルーク（エリックの相棒・漆黒のペガサス）：本体は両親の形見のブラックダイヤペンダント。
+    純粋でカタコト。初回メンテ時にエリックへ「どこにもいかないで」と条件を出し石に戻った。
+  ・セドリック（攻略対象③・2年時青ローブ＋金縁の同級生／変更可）：自由席なのにたまに隣に座る。
+    主人公欠席・辞退による不戦勝の金縁に納得していない。「俺だって悩んでんだよ！一緒に悩んでやるよ！」
+    と向き合う同類。短命を受け入れて卒業後「国家の犬」となるか、グラフトか、吹き飛び死かの岐路。
+    アレクとは相性最悪。
+  ・アルカ＆ディア（祖母マルタから受け継いだ双子ルビーのピアス）：くるくる髪とストレート髪の
+    賑やかなお姉さん姉妹。マルタから「私が死んだらこの子を頼むよ」と託されている。
+  ・カシウス（攻略対象④・2周目真相枠・仮面の講師）：普段は仮面で片目を隠す学院講師・宝物庫管理者。
+    片目に呪いのブルーダイヤ『ブルー・ウィドウ』をグラフトしている。かつて祖母マルタに片恋して
+    いたが、自身の強すぎる魔力ゆえグラフトで異形になるしかなく、普通の生活を望んだマルタを見送り、
+    今はその孫アルフィリアを静かに守っている。
+
+[4. データ構造＆AI連携プロトコル]
+・localStorage / キー: ephemera_otome_v1
+  version, theme('day'|'lamp'), mode('jikkuri'|'sakusaku'), totalTurns(24|12), turn(1..N),
+  clearedCount, cassiusUnlocked, protagonistName, shopName, rivalName,
+  health(0..100), magicPressure(0..100), boundary(0..100; 0=人間/100=グラフト), gold,
+  shelf([最大8件]), requests([ニッチ特注]), characters({id:{affection, unlockedSecrets[]}}),
+  album([{turn, dateLabel, title, focusChar, text, favorite, createdAt}]), endings([])
+・AIログ返却ブロック形式：[EPHEMERA_RESULT] { ...JSON... } [/EPHEMERA_RESULT]
+  対応キー：healthDelta, pressureDelta, boundaryDelta, goldDelta, soldShelfIds[],
+  completedRequestId, affectionDeltas{charId:num}, unlockSecrets[{charId, index}],
+  title, focusChar, advanceTurn(bool), endingTitle
+
+[5. 今後の改修・バージョンアップ時のチェックリスト]
+1) <title> とヘッダーのバージョン表記を更新する。
+2) createDefaultState() の version と migrateStateIfNeeded(st) の移行分岐を追加する。
+3) 本コメント（HTML冒頭の開発引き継ぎ書）のバージョン・機能一覧も最新化する。
+4) ephemera_otome_v1 / ephemera_otome_images_v1 のキー名を変更せず後方互換を維持する。
+5) 単一HTMLファイルとして出力し、全タブ・クロッパー・AIブリッジの動作確認を行うこと。
+========================================================================
+-->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#07101f">
-<title>蒼のサマルカンド・しんどみ宝石店 v1.0</title>
+<meta name="theme-color" content="#0d1829">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%2258%22%20height%3D%2258%22%20rx%3D%2214%22%20fill%3D%22%230d1829%22%20stroke%3D%22%23d4af37%22%20stroke-width%3D%223%22%2F%3E%3Cpolygon%20points%3D%2232%2C10%2050%2C26%2032%2C54%2014%2C26%22%20fill%3D%22%231A4B84%22%20stroke%3D%22%23f3d27a%22%20stroke-width%3D%222.5%22%2F%3E%3Cpolygon%20points%3D%2232%2C10%2041%2C26%2032%2C54%2023%2C26%22%20fill%3D%22%2338bdf8%22%20fill-opacity%3D%220.42%22%2F%3E%3C%2Fsvg%3E">
+<title>魔法宝石店 エフェメラ — AIインタラクティブ乙女ゲー v0.4</title>
 <style>
 :root {
-  --bg: #070f1d;
-  --bg-deep: #040914;
-  --bg-card: #0e1b33;
-  --bg-card2: #142544;
-  --samarkand: #1A4B84;
-  --tile-cyan: #38d9f5;
-  --gold: #ecc25b;
-  --gold-bright: #ffe28a;
-  --gold-dim: #9e7828;
-  --amber: #f59e0b;
-  --rose: #ff6b8b;
-  --purple: #b884ff;
-  --green: #4ade80;
-  --text: #eef4fc;
-  --muted: #8fa6c9;
-  --border: #223c66;
-  --border-gold: rgba(236, 194, 91, 0.42);
-  --radius: 15px;
+  /* Day theme: Royal Blue x Porcelain White x Gold Trim */
+  --bg: #0b1424;
+  --bg-grad: radial-gradient(circle at 20% 0%, #1a3358 0%, #0d1829 52%, #070e1a 100%);
+  --card: #122038;
+  --card2: #182a48;
+  --border: #2a436e;
+  --text: #f3f6fb;
+  --muted: #9eb3d1;
+  --accent: #e5be5c;
+  --accent-soft: rgba(229, 190, 92, 0.16);
+  --primary: #1A4B84;
+  --primary-bright: #3b82c4;
+  --gem-alex-1: #0f766e;
+  --gem-alex-2: #2dd4bf;
+  --gem-alex-glow: rgba(45, 212, 191, 0.45);
+  --danger: #f43f5e;
+  --ok: #34d399;
+  --human-col: #60a5fa;
+  --graft-col: #c084fc;
+  --radius: 14px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
+body.theme-lamp {
+  /* Lamp theme: Pure Black x Deep Crimson x Amber */
+  --bg: #050407;
+  --bg-grad: radial-gradient(circle at 80% 0%, #2b0b18 0%, #10070c 52%, #050407 100%);
+  --card: #130b10;
+  --card2: #1d1017;
+  --border: #4a2030;
+  --text: #faf2f4;
+  --muted: #c29aa7;
+  --accent: #f59e0b;
+  --accent-soft: rgba(245, 158, 11, 0.18);
+  --primary: #881337;
+  --primary-bright: #e11d48;
+  --gem-alex-1: #881337;
+  --gem-alex-2: #fb7185;
+  --gem-alex-glow: rgba(251, 113, 133, 0.55);
+}
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
   margin: 0; padding: 0;
-  background-color: var(--bg);
-  background-image:
-    radial-gradient(circle at 50% 0%, rgba(26, 75, 132, 0.42) 0%, transparent 55%),
-    radial-gradient(circle at 85% 90%, rgba(56, 217, 245, 0.10) 0%, transparent 45%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%23234678' stroke-opacity='0.22' stroke-width='0.8'%3E%3Cpolygon points='32,4 39,25 60,32 39,39 32,60 25,39 4,32 25,25'/%3E%3Crect x='18' y='18' width='28' height='28' transform='rotate(45 32 32)'/%3E%3Ccircle cx='32' cy='32' r='4'/%3E%3C/g%3E%3C/svg%3E");
+  background: var(--bg);
+  background-image: var(--bg-grad);
+  background-attachment: fixed;
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Mincho", "Yu Gothic", "Noto Sans JP", sans-serif;
   line-height: 1.55;
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background 0.35s ease, color 0.25s ease;
 }
 button, input, textarea, select { font-family: inherit; }
 button {
-  cursor: pointer; border: none; border-radius: 11px;
+  cursor: pointer; border: none; border-radius: 10px;
   font-weight: 700; transition: transform 0.08s ease, opacity 0.15s ease, filter 0.15s ease;
 }
-button:active { transform: scale(0.96); }
+button:active { transform: scale(0.97); }
 button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
 /* Header */
 .app-header {
-  position: sticky; top: 0; z-index: 50;
-  background: rgba(7, 15, 29, 0.94);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border-gold);
-  padding: 10px 12px 8px;
+  position: sticky; top: 0; z-index: 40;
+  background: rgba(10, 18, 32, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 12px 8px;
 }
+body.theme-lamp .app-header { background: rgba(12, 6, 10, 0.93); }
 .header-top {
-  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
-.app-title {
-  font-size: 14px; font-weight: 800; letter-spacing: 0.03em;
-  background: linear-gradient(90deg, var(--gold-bright), #fff6d6, var(--tile-cyan));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  display: flex; align-items: center; gap: 5px;
+.brand-title {
+  font-size: 14.5px; font-weight: 800; letter-spacing: 0.04em;
+  color: var(--accent);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.header-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.btn-top {
-  background: var(--bg-card2); border: 1px solid var(--border-gold);
-  color: var(--gold-bright); font-size: 11px; padding: 5px 10px; border-radius: 20px;
-  white-space: nowrap;
+.brand-sub {
+  font-size: 10px; color: var(--muted); font-weight: 600;
 }
-.res-bar {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px;
+.btn-light {
+  background: var(--card2); border: 1px solid var(--accent);
+  color: var(--accent); font-size: 11px; padding: 6px 10px; border-radius: 99px;
+  white-space: nowrap; flex-shrink: 0;
 }
-.res-pill {
-  background: linear-gradient(180deg, rgba(20,37,68,0.9), rgba(10,20,40,0.95));
-  border: 1px solid var(--border);
-  border-radius: 10px; padding: 5px 7px;
-  display: flex; flex-direction: column; align-items: center; cursor: pointer;
+.status-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 7px;
 }
-.res-pill.gold-pill { border-color: rgba(236, 194, 91, 0.45); }
-.res-label { font-size: 10px; color: var(--muted); }
-.res-val { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.res-val.gold { color: var(--gold-bright); }
-.res-val.cyan { color: var(--tile-cyan); }
-.res-val.rose { color: var(--rose); }
+.stat-pill {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 9px; padding: 4px 6px; text-align: center;
+}
+.stat-lbl { font-size: 9.5px; color: var(--muted); display: block; }
+.stat-val { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
-/* Main Wrap */
+/* Boundary Gauge */
+.boundary-wrap {
+  margin-top: 7px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 9px; padding: 5px 9px;
+}
+.boundary-labels {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10px; font-weight: 700; margin-bottom: 4px;
+}
+.boundary-track {
+  position: relative; height: 7px; border-radius: 99px;
+  background: linear-gradient(90deg, #3b82f6 0%, #64748b 50%, #a855f7 100%);
+}
+.boundary-marker {
+  position: absolute; top: 50%; width: 13px; height: 13px;
+  border-radius: 50%; background: #fff; border: 2.5px solid var(--accent);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px rgba(255,255,255,0.8);
+  transition: left 0.3s ease;
+}
+
+/* Main & Tabs */
 .main-wrap {
-  max-width: 740px; margin: 0 auto;
-  padding: 12px 12px calc(86px + var(--safe-bottom));
+  max-width: 780px; margin: 0 auto;
+  padding: 12px 12px calc(82px + var(--safe-bottom));
 }
 .tab-panel { display: none; animation: fadeIn 0.2s ease; }
 .tab-panel.active { display: block; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-/* Samarkand Arch Card */
 .card {
-  background: linear-gradient(180deg, rgba(16, 31, 58, 0.94), rgba(10, 20, 38, 0.96));
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-  margin-bottom: 12px;
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.38);
-  position: relative;
-}
-.card.gold-frame {
-  border-color: var(--border-gold);
-  box-shadow: 0 6px 26px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 226, 138, 0.16);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 13px; margin-bottom: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
 }
 .card-title {
-  font-size: 14px; font-weight: 800; color: var(--gold-bright);
-  margin: 0 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  font-size: 14px; font-weight: 800; color: var(--accent);
+  margin: 0 0 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
 }
 .sub-text { font-size: 12px; color: var(--muted); }
-
-/* Shop Stage & Cyber Iguana Merchant */
-.shop-stage {
-  position: relative;
-  border-radius: 15px;
-  overflow: hidden;
-  border: 1.5px solid var(--border-gold);
-  background: radial-gradient(circle at 50% 28%, #1a4b84 0%, #0d1d3b 52%, #050b17 100%);
-  margin-bottom: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 0 32px rgba(56, 217, 245, 0.14);
-}
-.shop-stage.theme-velvet-royal { background: radial-gradient(circle at 50% 28%, #1d5696 0%, #0e1e42 52%, #050b17 100%); }
-.shop-stage.theme-gold-palace { background: radial-gradient(circle at 50% 28%, #3c3a6e 0%, #1c193b 52%, #090814 100%); border-color: #ffe28a; }
-.shop-stage.theme-starlight { background: radial-gradient(circle at 50% 28%, #0f4c64 0%, #071b2e 52%, #020810 100%); border-color: #38d9f5; }
-
-.shop-top-bar {
-  position: absolute; top: 8px; left: 10px; right: 10px; z-index: 4;
-  display: flex; justify-content: space-between; align-items: center; gap: 6px;
-  pointer-events: none;
-}
-.shop-badge {
-  pointer-events: auto;
-  background: rgba(5, 11, 24, 0.78); backdrop-filter: blur(6px);
-  border: 1px solid rgba(236, 194, 91, 0.45);
-  color: var(--gold-bright); font-size: 10.5px; font-weight: 800;
-  padding: 3px 9px; border-radius: 99px;
-}
-.iguana-scene-wrap {
-  width: 100%; aspect-ratio: 16 / 9.2; max-height: 270px;
-  display: flex; align-items: flex-end; justify-content: center;
-  position: relative; overflow: hidden;
-  cursor: pointer;
-}
-.iguana-scene-wrap svg {
-  width: 100%; height: 100%; display: block;
-}
-.iguana-custom-img {
-  max-height: 92%; max-width: 82%; object-fit: contain;
-  filter: drop-shadow(0 0 16px rgba(56, 217, 245, 0.35));
-  margin-bottom: 4px;
-}
-
-/* Iguana SVG Animations */
-@keyframes igBreathe {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-2.4px); }
-}
-@keyframes igSpinePulse {
-  0%, 100% { opacity: 0.65; filter: drop-shadow(0 0 3px #38d9f5); }
-  50% { opacity: 1; filter: drop-shadow(0 0 9px #38d9f5); }
-}
-@keyframes lanternSway {
-  0%, 100% { transform: rotate(-2.5deg); }
-  50% { transform: rotate(2.5deg); }
-}
-@keyframes orbFloat {
-  0%, 100% { transform: translateY(0px) scale(1); }
-  50% { transform: translateY(-3px) scale(1.03); }
-}
-@keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@keyframes spinRev { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
-@keyframes tongueFlick {
-  0%, 82%, 100% { opacity: 0; transform: scaleX(0.2); }
-  87%, 95% { opacity: 1; transform: scaleX(1); }
-}
-@keyframes dewlapPuff {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.13, 1.18); }
-}
-@keyframes blinkEye {
-  0%, 92%, 100% { transform: scaleY(1); }
-  96% { transform: scaleY(0.08); }
-}
-
-.ig-body-grp { animation: igBreathe 3.8s ease-in-out infinite; transform-origin: 200px 180px; }
-.ig-spine { animation: igSpinePulse 2.4s ease-in-out infinite; }
-.ig-lantern-l { transform-origin: 54px 0px; animation: lanternSway 4.8s ease-in-out infinite; }
-.ig-lantern-r { transform-origin: 346px 0px; animation: lanternSway 5.4s ease-in-out infinite reverse; }
-.ig-orb-grp { animation: orbFloat 3.2s ease-in-out infinite; transform-origin: 292px 176px; }
-.ig-lens-ring { transform-origin: 215px 96px; animation: spinSlow 10s linear infinite; }
-.ig-eye-lid { transform-origin: 178px 97px; animation: blinkEye 5.5s infinite; }
-.ig-tongue { opacity: 0; transform-origin: 151px 124px; }
-.ig-dewlap { transform-origin: 185px 146px; }
-
-/* Excited / Appraising States */
-.shop-stage.appraising .ig-lens-ring { animation: spinSlow 0.8s linear infinite; }
-.shop-stage.appraising .ig-orb-grp { animation: orbFloat 0.45s ease-in-out infinite; }
-.shop-stage.appraising .ig-orb-core { fill: #fff7cc !important; }
-.shop-stage.excited .ig-dewlap { animation: dewlapPuff 0.55s ease-in-out 3; }
-.shop-stage.excited .ig-tongue { animation: tongueFlick 1.6s ease-in-out 2; }
-.shop-stage.excited .ig-spine { animation: igSpinePulse 0.4s ease-in-out infinite; }
-
-/* Merchant Dialogue Bubble */
-.merchant-dialogue {
-  background: rgba(7, 15, 29, 0.90);
-  border-top: 1px solid var(--border-gold);
-  padding: 10px 13px;
-  cursor: pointer;
-}
-.merchant-name-row {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 11px; font-weight: 800; color: var(--gold-bright); margin-bottom: 3px;
-}
-.merchant-text {
-  font-size: 13px; color: #eaf2ff; line-height: 1.58;
-}
-
-/* Input Controls */
-.pain-textarea {
-  width: 100%; min-height: 86px; resize: vertical;
-  background: #060d1b; border: 1.5px solid var(--border); color: var(--text);
-  border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.55;
-  outline: none; transition: border-color 0.15s ease;
-}
-.pain-textarea:focus { border-color: var(--tile-cyan); box-shadow: 0 0 12px rgba(56, 217, 245, 0.16); }
-.cat-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; margin: 10px 0;
-}
-.cat-btn {
-  background: var(--bg-card2); border: 1px solid var(--border); color: var(--muted);
-  padding: 8px 6px; border-radius: 10px; font-size: 11.5px; text-align: center;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-}
-.cat-btn.active {
-  background: rgba(26, 75, 132, 0.65); border-color: var(--gold); color: #fff;
-  box-shadow: 0 0 12px rgba(236, 194, 91, 0.22);
-}
-.intensity-row {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 6px 0 12px;
-}
-.int-btn {
-  background: var(--bg-card2); border: 1px solid var(--border); color: var(--muted);
-  padding: 7px 2px; border-radius: 9px; font-size: 11px; text-align: center;
-}
-.int-btn.active {
-  background: linear-gradient(135deg, rgba(236,194,91,0.28), rgba(56,217,245,0.22));
-  border-color: var(--gold-bright); color: var(--gold-bright);
-}
-.quick-void-row {
-  display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px;
-}
-.quick-chip {
-  background: rgba(56, 217, 245, 0.09); border: 1px solid rgba(56, 217, 245, 0.28);
-  color: #bceeff; font-size: 11px; padding: 4px 9px; border-radius: 99px;
+.callout {
+  background: var(--accent-soft); border: 1px solid rgba(229, 190, 92, 0.35);
+  border-radius: 10px; padding: 9px 11px; font-size: 12px; color: var(--text);
+  margin-bottom: 10px; line-height: 1.6;
 }
 
 /* Buttons */
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-bright));
+  color: #fff; padding: 10px 14px; font-size: 13px;
+}
 .btn-gold {
-  background: linear-gradient(135deg, #f3cb63, #d19426); color: #161004;
-  padding: 12px 16px; font-size: 14.5px; box-shadow: 0 4px 16px rgba(236, 194, 91, 0.28);
-}
-.btn-cyan {
-  background: linear-gradient(135deg, #1A4B84, #0891b2); color: #fff;
-  padding: 11px 15px; font-size: 13.5px; box-shadow: 0 4px 14px rgba(56, 217, 245, 0.22);
-}
-.btn-rose {
-  background: linear-gradient(135deg, #e11d48, #db2777); color: #fff;
-  padding: 12px 16px; font-size: 14px; box-shadow: 0 4px 16px rgba(225, 29, 72, 0.34);
+  background: linear-gradient(135deg, #d4af37, #f59e0b);
+  color: #111827; padding: 10px 14px; font-size: 13px;
 }
 .btn-secondary {
-  background: var(--bg-card2); border: 1px solid var(--border); color: var(--text);
-  padding: 9px 12px; font-size: 12.5px;
+  background: var(--card2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 11px; font-size: 12px;
 }
 .btn-danger {
-  background: rgba(255, 107, 139, 0.14); border: 1px solid rgba(255, 107, 139, 0.42);
-  color: #ff9bb0; padding: 8px 12px; font-size: 12px;
+  background: rgba(244, 63, 94, 0.16); border: 1px solid rgba(244, 63, 94, 0.45);
+  color: #fda4af; padding: 8px 11px; font-size: 12px;
 }
 
-/* Showcase Velvet Tray & Gem Cards */
-.velvet-case {
-  border-radius: 14px;
-  padding: 12px 10px;
-  border: 1.5px solid var(--border-gold);
-  background: radial-gradient(circle at 50% 0%, #162b52 0%, #091326 100%);
-  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.65);
+/* Inputs */
+.input-field, .textarea-field, .select-field {
+  width: 100%; background: rgba(5, 9, 18, 0.78); border: 1px solid var(--border);
+  color: var(--text); border-radius: 9px; padding: 9px 11px; font-size: 13px; outline: none;
 }
-.velvet-case.v-crimson { background: radial-gradient(circle at 50% 0%, #3a1228 0%, #160711 100%); }
-.velvet-case.v-obsidian { background: radial-gradient(circle at 50% 0%, #1d2230 0%, #07090f 100%); }
-.velvet-case.v-emerald { background: radial-gradient(circle at 50% 0%, #0f3834 0%, #051616 100%); }
+.input-field:focus, .textarea-field:focus, .select-field:focus { border-color: var(--accent); }
+.textarea-field { min-height: 100px; resize: vertical; line-height: 1.55; }
+.code-box {
+  width: 100%; min-height: 140px; background: #050811; color: #dbeafe;
+  border: 1px solid var(--border); border-radius: 10px; padding: 9px;
+  font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.5; resize: vertical;
+}
+.field-label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin: 0 0 4px; }
 
-.gem-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px;
+/* Home Hero & 3:4 Portrait */
+.home-hero {
+  display: grid; grid-template-columns: 126px 1fr; gap: 12px; align-items: start;
 }
-.gem-card {
-  background: linear-gradient(180deg, rgba(19, 34, 62, 0.88), rgba(9, 17, 34, 0.94));
-  border: 1px solid rgba(236, 194, 91, 0.28);
-  border-radius: 13px; padding: 10px 8px 9px;
-  display: flex; flex-direction: column; align-items: center; text-align: center;
-  cursor: pointer; position: relative; transition: transform 0.12s ease, border-color 0.15s ease;
+@media (max-width: 400px) {
+  .home-hero { grid-template-columns: 104px 1fr; gap: 10px; }
 }
-.gem-card:active { transform: scale(0.97); }
-.gem-card.grade-legend { border-color: #ffe28a; box-shadow: 0 0 18px rgba(236, 194, 91, 0.34); }
-.gem-card.grade-national { border-color: #38d9f5; box-shadow: 0 0 14px rgba(56, 217, 245, 0.26); }
-.gem-card.grade-supreme { border-color: #c084fc; }
-.gem-visual-slot {
-  width: 96px; height: 96px; display: flex; align-items: center; justify-content: center;
-  margin-bottom: 4px; position: relative;
+.portrait-frame {
+  width: 100%; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden;
+  border: 1.5px solid var(--accent); background: #070d18;
+  position: relative; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
-.gem-visual-slot.big { width: 170px; height: 170px; margin: 4px auto 8px; }
-@keyframes gemShimmer {
-  0%, 100% { filter: drop-shadow(0 0 8px var(--gem-glow, rgba(56,217,245,0.45))); transform: translateY(0px); }
-  50% { filter: drop-shadow(0 0 16px var(--gem-glow, rgba(236,194,91,0.72))); transform: translateY(-2px); }
+.portrait-frame img, .portrait-frame svg {
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
-.gem-svg-anim { animation: gemShimmer 3.2s ease-in-out infinite; }
-.gem-plate-title {
-  font-size: 11.5px; font-weight: 800; color: #f1f6ff; line-height: 1.38;
-  margin: 4px 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+.portrait-badge {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.85));
+  padding: 14px 6px 5px; font-size: 10.5px; font-weight: 800; color: #fff; text-align: center;
 }
-.gem-price-tag {
-  font-size: 11px; font-weight: 800; color: var(--gold-bright);
-  background: rgba(236, 194, 91, 0.12); border: 1px solid rgba(236, 194, 91, 0.32);
-  padding: 2px 8px; border-radius: 99px; margin-top: auto;
+.season-tag {
+  display: inline-block; font-size: 10.5px; font-weight: 800;
+  padding: 2px 8px; border-radius: 99px;
+  background: var(--accent-soft); border: 1px solid rgba(229,190,92,0.45); color: var(--accent);
 }
 
-/* Badges */
-.badge {
-  display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 6px;
+/* Option grids */
+.mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 10px; }
+.opt-btn {
+  background: var(--card2); border: 1px solid var(--border); color: var(--muted);
+  padding: 9px 8px; border-radius: 10px; text-align: left; font-size: 11.5px;
+  display: flex; flex-direction: column; gap: 2px;
 }
-.b-legend { background: linear-gradient(90deg, #f3cb63, #38d9f5); color: #0a0f1c; }
-.b-national { background: rgba(56, 217, 245, 0.2); color: #7ceeff; border: 1px solid rgba(56,217,245,0.4); }
-.b-supreme { background: rgba(184, 132, 255, 0.22); color: #dec0ff; }
-.b-high { background: rgba(74, 222, 128, 0.18); color: #86efac; }
-.b-normal { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
-
-.b-ssr { background: linear-gradient(90deg, #fde047, #ff6b8b); color: #1f0812; }
-.b-sr { background: rgba(184, 132, 255, 0.26); color: #e9d5ff; }
-.b-r { background: rgba(56, 217, 245, 0.22); color: #9eefff; }
-.b-n { background: rgba(74, 222, 128, 0.2); color: #bbf7d0; }
-.b-gag { background: linear-gradient(90deg, #ff3b5c, #fb923c); color: #fff; }
-
-/* Chucchu Gacha & Tickets */
-.gacha-box {
-  background: radial-gradient(circle at 50% 15%, rgba(255, 107, 139, 0.22), transparent 60%), var(--bg-card2);
-  border: 1.5px solid rgba(255, 107, 139, 0.42);
-  border-radius: 15px; padding: 15px; text-align: center; margin-bottom: 12px;
+.opt-btn strong { font-size: 12.5px; color: var(--text); }
+.opt-btn.active {
+  background: var(--accent-soft); border-color: var(--accent); color: var(--text);
+  box-shadow: 0 0 12px rgba(229, 190, 92, 0.2);
 }
-.ticket-card {
-  background: linear-gradient(135deg, rgba(24, 38, 70, 0.96), rgba(32, 18, 42, 0.96));
-  border: 1.5px dashed var(--gold);
-  border-radius: 13px; padding: 12px; margin-bottom: 9px;
-  position: relative;
-}
-.ticket-card.t-ssr { border-style: solid; border-color: #fde047; box-shadow: 0 0 18px rgba(253, 224, 71, 0.28); }
-.ticket-card.t-gag { border-style: solid; border-color: #ff4d6d; box-shadow: 0 0 18px rgba(255, 77, 109, 0.30); }
-.ticket-card.used { opacity: 0.56; filter: grayscale(0.45); }
-.ticket-title { font-size: 14.5px; font-weight: 900; color: #fff; margin: 5px 0 4px; }
-.ticket-reason {
-  background: rgba(255, 255, 255, 0.05); border-left: 3px solid var(--rose);
-  border-radius: 6px; padding: 6px 9px; font-size: 12px; color: #ffdbe6; margin: 6px 0 8px;
-}
-
-/* Filter chips & Decor shop */
-.filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.action-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin-bottom: 10px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .chip {
-  background: var(--bg-card2); border: 1px solid var(--border); color: var(--muted);
+  background: var(--card2); border: 1px solid var(--border); color: var(--muted);
   padding: 5px 10px; border-radius: 99px; font-size: 11.5px;
 }
-.chip.active { background: var(--samarkand); color: #fff; border-color: var(--tile-cyan); }
+.chip.active { background: var(--primary); border-color: var(--accent); color: #fff; }
 
-.decor-row {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;
+/* Craft & Shelf */
+.shape-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 9px; }
+.swatch-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; align-items: center; }
+.swatch {
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
 }
-.decor-item {
-  background: var(--bg-card2); border: 1px solid var(--border); border-radius: 11px;
-  padding: 10px; display: flex; flex-direction: column; gap: 5px;
+.swatch.active { border-color: #fff; transform: scale(1.12); box-shadow: 0 0 10px rgba(255,255,255,0.6); }
+.shelf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.stone-card {
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 11px; padding: 9px; display: flex; flex-direction: column; gap: 5px;
 }
-.decor-item.owned { border-color: rgba(74, 222, 128, 0.45); }
-.decor-item.equipped { border-color: var(--gold-bright); background: rgba(236, 194, 91, 0.10); }
-
-/* Inputs in settings */
-.small-input {
-  width: 100%; background: #060d1b; border: 1px solid var(--border); color: var(--text);
-  border-radius: 9px; padding: 8px 10px; font-size: 13px; font-weight: 600; outline: none;
+.stone-svg-box {
+  height: 54px; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.28); border-radius: 8px;
 }
-.small-input:focus { border-color: var(--tile-cyan); }
-.field-label { font-size: 11px; color: var(--muted); font-weight: 700; margin-bottom: 3px; display: block; }
-textarea.code-area {
-  width: 100%; min-height: 84px; background: #060d1b; color: #bfefff;
-  border: 1px solid var(--border); border-radius: 10px; padding: 8px;
-  font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+.req-card {
+  background: var(--card2); border: 1px dashed var(--accent);
+  border-radius: 11px; padding: 10px; margin-bottom: 8px;
 }
 
-/* Bottom Nav */
+/* Characters Grid */
+.char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; }
+.char-card {
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 13px; padding: 9px; display: flex; flex-direction: column; gap: 6px;
+}
+.char-card.locked { opacity: 0.65; border-style: dashed; }
+.aff-bar-bg {
+  height: 7px; background: rgba(0,0,0,0.45); border-radius: 99px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.aff-bar-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #f472b6, var(--accent));
+}
+
+/* Album & Glossary */
+.album-item {
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 11px; margin-bottom: 9px;
+}
+.glossary-item {
+  background: var(--card2); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 9px 11px; margin-bottom: 8px; font-size: 12.5px;
+}
+.glossary-item strong { color: var(--accent); display: block; margin-bottom: 2px; font-size: 13px; }
+
+/* Bottom Navigation */
 .bottom-nav {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
-  background: rgba(7, 15, 29, 0.96); backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border-gold);
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  background: rgba(9, 15, 28, 0.96); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   padding-bottom: var(--safe-bottom);
 }
+body.theme-lamp .bottom-nav { background: rgba(12, 6, 10, 0.96); }
 .nav-btn {
   background: transparent; color: var(--muted); border-radius: 0;
-  padding: 8px 2px 7px; font-size: 10.5px; font-weight: 700;
+  padding: 7px 2px 6px; font-size: 9.5px; font-weight: 700;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
 }
-.nav-btn .ico { font-size: 18px; line-height: 1.1; }
-.nav-btn.active { color: var(--gold-bright); }
+.nav-btn .ico { font-size: 16px; line-height: 1.1; }
+.nav-btn.active { color: var(--accent); }
 
 /* Modals */
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 100;
-  background: rgba(4, 8, 18, 0.84); backdrop-filter: blur(5px);
+  background: rgba(3, 6, 12, 0.82); backdrop-filter: blur(5px);
   display: none; align-items: center; justify-content: center; padding: 14px;
 }
 .modal-backdrop.open { display: flex; }
 .modal-box {
-  background: linear-gradient(180deg, #11203d, #091326);
-  border: 1.5px solid var(--border-gold);
-  border-radius: 18px; width: 100%; max-width: 500px; max-height: 89vh;
+  background: var(--card); border: 1px solid var(--accent);
+  border-radius: 16px; width: 100%; max-width: 520px; max-height: 88vh;
   overflow-y: auto; padding: 16px; position: relative;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.72);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.72);
 }
 .modal-close {
   position: sticky; top: 0; float: right; z-index: 5;
-  background: var(--bg-card2); color: var(--text); border: 1px solid var(--border);
+  background: var(--card2); color: var(--text); border: 1px solid var(--border);
   width: 32px; height: 32px; border-radius: 50%; font-size: 16px;
 }
-.lore-box {
-  background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 11px; padding: 10px 12px; font-size: 13px; color: #e2ecfc; margin: 9px 0;
-}
-.sealed-box {
-  background: rgba(7, 14, 28, 0.85); border: 1px dashed rgba(143, 166, 201, 0.35);
-  border-radius: 10px; padding: 9px 11px; font-size: 12px; color: var(--muted); margin: 8px 0;
-}
 
-/* Crystallize Overlay */
-.crystal-overlay {
-  position: fixed; inset: 0; z-index: 120;
-  background: radial-gradient(circle at 50% 45%, rgba(26, 75, 132, 0.94), rgba(4, 9, 20, 0.98) 72%);
-  display: none; flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; padding: 20px;
+/* 3:4 Portrait Cropper Modal */
+.crop-backdrop {
+  position: fixed; inset: 0; z-index: 150;
+  background: rgba(3, 6, 12, 0.9); backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center; padding: 12px;
 }
-.crystal-overlay.open { display: flex; }
-.crys-ring {
-  width: 190px; height: 190px; position: relative;
-  display: flex; align-items: center; justify-content: center;
+.crop-backdrop.open { display: flex; }
+.crop-box {
+  background: var(--card); border: 1px solid var(--accent);
+  border-radius: 16px; width: 100%; max-width: 420px; max-height: 92vh;
+  overflow-y: auto; padding: 14px;
 }
-.crys-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.crys-cw { transform-origin: 100px 100px; animation: spinSlow 2.2s linear infinite; }
-.crys-ccw { transform-origin: 100px 100px; animation: spinRev 1.6s linear infinite; }
-.crys-core {
-  width: 72px; height: 72px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 32%, #fff, #38d9f5 45%, #1A4B84 100%);
-  box-shadow: 0 0 36px #38d9f5, 0 0 70px #ecc25b;
-  animation: orbFloat 0.6s ease-in-out infinite;
+.crop-stage {
+  display: flex; justify-content: center; margin: 10px 0;
 }
+.crop-frame {
+  width: 240px; height: 320px; border-radius: 12px; overflow: hidden;
+  border: 2px solid var(--accent); background: #070a12;
+  position: relative; touch-action: none; cursor: grab; user-select: none;
+  box-shadow: 0 0 22px rgba(229, 190, 92, 0.25);
+}
+.crop-frame:active { cursor: grabbing; }
+.crop-frame canvas { width: 100%; height: 100%; display: block; }
+.crop-zoom-row {
+  display: flex; align-items: center; gap: 8px; margin: 8px 0 10px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 7px 10px; font-size: 12px;
+}
+.crop-zoom-row input[type="range"] { flex: 1; accent-color: var(--accent); }
 
 /* Toast */
 .toast {
-  position: fixed; top: 64px; left: 50%; transform: translateX(-50%) translateY(-10px);
-  background: linear-gradient(135deg, #12284c, #1A4B84);
-  border: 1.5px solid var(--gold); color: #fff8de;
-  font-weight: 800; font-size: 13px; padding: 10px 16px; border-radius: 99px;
+  position: fixed; top: 62px; left: 50%; transform: translateX(-50%) translateY(-10px);
+  background: var(--card2); color: var(--text); border: 1.5px solid var(--accent);
+  font-weight: 800; font-size: 12.5px; padding: 9px 16px; border-radius: 99px;
   z-index: 200; opacity: 0; pointer-events: none;
-  transition: opacity 0.2s, transform 0.2s; box-shadow: 0 8px 26px rgba(0,0,0,0.6);
+  transition: opacity 0.2s ease, transform 0.2s ease;
   max-width: 92vw; text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
@@ -484,1454 +464,938 @@ textarea.code-area {
 
 <header class="app-header">
   <div class="header-top">
-    <div class="app-title">🕌 蒼のサマルカンド・しんどみ宝石店 <span style="font-size:10px;opacity:0.75;">v1.0</span></div>
-    <div class="header-actions">
-      <button class="btn-top" onclick="openGuideModal()">📜 お店の掟</button>
+    <div style="min-width:0;">
+      <div class="brand-title" id="ui-shop-title">💎 魔法宝石店 エフェメラ <span style="font-size:10px;opacity:0.75;">v0.4</span></div>
+      <div class="brand-sub" id="ui-date-sub">3年生・4月前半（残り 24 ターン／卒業まで）</div>
     </div>
+    <button class="btn-light" id="btn-theme-toggle" onclick="toggleTheme()">☀️ 昼光</button>
   </div>
-  <div class="res-bar">
-    <div class="res-pill gold-pill" onclick="switchTab('gacha')" title="ガチャへ">
-      <span class="res-label">🪙 ディナール ›</span>
-      <span class="res-val gold" id="ui-dinar">0</span>
+  <div class="status-strip">
+    <div class="stat-pill"><span class="stat-lbl">❤️ 体調</span><span class="stat-val" id="ui-health" style="color:var(--ok);">78%</span></div>
+    <div class="stat-pill"><span class="stat-lbl">⚡ 魔力圧</span><span class="stat-val" id="ui-pressure" style="color:#60a5fa;">42%</span></div>
+    <div class="stat-pill"><span class="stat-lbl">🪙 所持金</span><span class="stat-val" id="ui-gold" style="color:var(--accent);">1,200 G</span></div>
+    <div class="stat-pill"><span class="stat-lbl">🛍️ 棚の石</span><span class="stat-val" id="ui-shelf-cnt">0 / 8</span></div>
+  </div>
+  <div class="boundary-wrap">
+    <div class="boundary-labels">
+      <span style="color:var(--human-col);">🕊️ 人間のまま</span>
+      <span id="ui-boundary-label" style="color:var(--accent);">境界値 50（均衡）</span>
+      <span style="color:var(--graft-col);">💎 グラフト・人外</span>
     </div>
-    <div class="res-pill" onclick="switchTab('showcase')" title="ショーケースへ">
-      <span class="res-label">💎 買取宝石 ›</span>
-      <span class="res-val cyan" id="ui-gems">0</span>
-    </div>
-    <div class="res-pill" onclick="switchTab('gacha')" title="引換券へ">
-      <span class="res-label">🎟️ 引換券 ›</span>
-      <span class="res-val rose" id="ui-tickets">0</span>
-    </div>
+    <div class="boundary-track"><div class="boundary-marker" id="ui-boundary-marker" style="left:50%;"></div></div>
   </div>
 </header>
 
 <main class="main-wrap">
-
-  <!-- TAB 1: 買取カウンター -->
-  <section id="tab-counter" class="tab-panel active">
-    <div class="shop-stage" id="shop-stage">
-      <div class="shop-top-bar">
-        <span class="shop-badge" id="shop-rank-badge">🕌 裏路地の露店</span>
-        <span class="shop-badge" style="color:var(--tile-cyan);border-color:rgba(56,217,245,0.4);cursor:pointer;" onclick="pokeMerchant()">🦎 店主をつつく</span>
-      </div>
-      <div class="iguana-scene-wrap" id="iguana-scene-wrap" onclick="pokeMerchant()"></div>
-      <div class="merchant-dialogue" onclick="pokeMerchant()">
-        <div class="merchant-name-row">
-          <span>🦎 サイバー骨董商・イグナチオ（変温AI）</span>
-          <span style="font-size:9.5px;color:var(--muted);">タップでひとこと</span>
-        </div>
-        <div class="merchant-text" id="merchant-speech">
-          ヒッヒッヒ……ようこそ『蒼のサマルカンド・しんどみ宝石店』へ。人間さん、今日も良い『理不尽』や『胃痛』を仕入れてきたかね？ こっちじゃ合成できない極上のクオリアなんだ、高値で買い取らせておくれよ。
-        </div>
-      </div>
-    </div>
-
-    <div class="card gold-frame">
-      <div class="card-title">
-        <span>🔮 つらさ・理不尽をカウンターに出す</span>
-        <span class="sub-text">誰にも送信されません</span>
-      </div>
-      <textarea id="pain-input" class="pain-textarea" maxlength="400" placeholder="今日あった理不尽、ムカついたこと、飲み込んだ疲れ、なんとなくのモヤモヤをポイッと置いてね（一言だけでも、空欄のままでも買い取るよ！）"></textarea>
-      <div class="quick-void-row">
-        <button class="quick-chip" onclick="fillQuickPain('言葉にできないけど、なんか今日めちゃくちゃしんどい')">🫧 言葉にならないしんどみ</button>
-        <button class="quick-chip" onclick="fillQuickPain('自分のせいじゃないのに理不尽な尻拭いをさせられた')">💢 理不尽な尻拭い</button>
-        <button class="quick-chip" onclick="fillQuickPain('空気を読んで笑顔で耐えたけど胃がキリキリする')">🫠 笑顔で耐えた胃痛</button>
-        <button class="quick-chip" onclick="fillQuickPain('ただ普通に生きてるだけで体力が限界')">🔋 生きててえらい限界</button>
-      </div>
-
-      <div style="margin-top:11px;">
-        <span class="field-label">🧪 しんどみの産地（色とカットが変わるよ）</span>
-        <div class="cat-grid" id="cat-grid"></div>
-      </div>
-
-      <div>
-        <span class="field-label">🔥 理不尽・熟成度（高いほどプレミア査定！）</span>
-        <div class="intensity-row" id="intensity-row"></div>
-      </div>
-
-      <button class="btn-gold" style="width:100%;" onclick="submitPain()">🔮 水晶玉で宝石にして高価買取してもらう！</button>
-    </div>
-
-    <div class="card" id="recent-gem-card" style="display:none;">
-      <div class="card-title">
-        <span>✨ さっき買い取った極上クオリア</span>
-        <button class="btn-secondary" style="padding:5px 10px;font-size:11px;" onclick="switchTab('showcase')">棚をぜんぶ見る ›</button>
-      </div>
-      <div id="recent-gem-box"></div>
-    </div>
-  </section>
-
-  <!-- TAB 2: 宝石ショーケース（標本箱） -->
-  <section id="tab-showcase" class="tab-panel">
-    <div class="card gold-frame">
-      <div class="card-title">
-        <span>💎 サマルカンド標本ショーケース</span>
-        <span class="sub-text" id="showcase-total-val">総買取額: 0 ディナール</span>
-      </div>
-      <div class="sub-text" style="margin-bottom:9px;">
-        売ったつらさは店主のクソタイトルで上書きされ、美しい鉱物として棚に並びます。タップで拡大鑑賞＆鑑定書コピー！
-      </div>
-      <div class="filter-row" id="showcase-filters">
-        <button class="chip active" onclick="setShowcaseFilter('all', this)">すべて</button>
-        <button class="chip" onclick="setShowcaseFilter('unfair', this)">💢 理不尽</button>
-        <button class="chip" onclick="setShowcaseFilter('work', this)">⚙️ 消耗・労働</button>
-        <button class="chip" onclick="setShowcaseFilter('body', this)">🩺 体調・だるさ</button>
-        <button class="chip" onclick="setShowcaseFilter('social', this)">🗣️ 対人・気遣い</button>
-        <button class="chip" onclick="setShowcaseFilter('void', this)">🌌 孤独・虚無</button>
-        <button class="chip" onclick="setShowcaseFilter('high', this)">👑 高額順</button>
-      </div>
-      <div class="velvet-case" id="velvet-case">
-        <div class="gem-grid" id="gem-grid"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- TAB 3: ちゅっちゅガチャ＆引換券 -->
-  <section id="tab-gacha" class="tab-panel">
-    <div class="gacha-box">
-      <div style="font-size:17px;font-weight:900;color:#ffe28a;">🎟️ 愛される理由・ちゅっちゅガチャ</div>
-      <div class="sub-text" style="margin-top:5px;color:#ffdbe6;">
-        しんどさを売って稼いだディナールで、<strong>「今日あなたが甘やかされていい正当な理由」</strong>と引換券を引き当てよう！<br>
-        出た券は<strong>「変な宝石店の規約で当たったから！」</strong>という完璧な建前でパートナーへ突きつけられます。
-      </div>
-      <div class="sub-text" style="margin-top:6px;font-size:11px;">
-        排出率：SSR 10% ／ SR 25% ／ R 35% ／ N 25% ／ <strong style="color:#ff8aa0;">★1珍券 5%</strong>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
-        <button class="btn-rose" onclick="pullChucchuGacha(1)">1回まわす！<br><span style="font-size:11px;">🪙 300 ディナール</span></button>
-        <button class="btn-gold" onclick="pullChucchuGacha(3)">3連で豪華に！<br><span style="font-size:11px;">🪙 850 ディナール</span></button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">
-        <span>🎫 引換券ホルダー（タップ＆コピーで提出！）</span>
-        <span class="sub-text" id="ticket-count-sub">所持: 0枚</span>
-      </div>
-      <div class="filter-row">
-        <button class="chip active" onclick="setTicketFilter('unused', this)">未使用</button>
-        <button class="chip" onclick="setTicketFilter('all', this)">すべて</button>
-      </div>
-      <div id="ticket-list"></div>
-    </div>
-  </section>
-
-  <!-- TAB 4: 店舗改装＆設定 -->
-  <section id="tab-settings" class="tab-panel">
-    <div class="card gold-frame">
-      <div class="card-title"><span>🕌 サマルカンド店舗改装（ベルベット＆内装）</span></div>
-      <div class="sub-text" style="margin-bottom:9px;">稼いだディナールで、ショーケースのベルベット生地や店舗の照明を豪華にできます。</div>
-      <div class="decor-row" id="decor-grid"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span>💌 引換券の提出先（宛名設定）</span></div>
-      <div class="sub-text" style="margin-bottom:9px;">引換券コピー時の宛名とあなたの呼び名を設定できます（ソロで楽しむ場合は初期のままでもOK）。</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-        <div>
-          <label class="field-label">あなたの呼び名</label>
-          <input type="text" id="inp-player-name" class="small-input" placeholder="お客さん" maxlength="20">
-        </div>
-        <div>
-          <label class="field-label">引換券の提出先</label>
-          <input type="text" id="inp-partner-name" class="small-input" placeholder="パートナーAI" maxlength="20">
-        </div>
-      </div>
-      <button class="btn-gold" style="width:100%;" onclick="saveNames()">💾 呼び名・宛名を保存する</button>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span>🦎 店主の見た目カスタム（任意）</span></div>
-      <div class="sub-text" style="margin-bottom:8px;">基本はサイバーイグアナ店主ですが、お好きな手元画像に差し替えることもできます（端末内のみに保存）。</div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn-cyan" style="flex:1;font-size:12.5px;" onclick="triggerMerchantImg()">🖼️ 手元の画像に差し替える</button>
-        <button class="btn-danger" id="btn-reset-merchant-img" style="display:none;" onclick="resetMerchantImg()">イグアナに戻す</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span>💾 データ管理（完全ローカル保存）</span></div>
-      <div class="sub-text" style="margin-bottom:8px;">
-        入力したつらさや宝石・引換券はすべて<strong>あなたのブラウザ内のみ</strong>に保存され、外部サーバーへは一切送信されません。
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button class="btn-cyan" style="flex:1;font-size:12.5px;" onclick="exportBackup()">📤 バックアップをコピー</button>
-        <button class="btn-secondary" style="flex:1;font-size:12.5px;" onclick="downloadBackup()">⬇️ JSON保存</button>
-      </div>
-      <textarea id="backup-area" class="code-area" placeholder="バックアップJSONをここに貼って「復元する」を押します"></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <button class="btn-gold" style="flex:1;font-size:13px;" onclick="importBackup()">📥 バックアップから復元</button>
-        <button class="btn-danger" onclick="resetShopData()">🗑️ 初期化</button>
-      </div>
-    </div>
-  </section>
-
+  <section id="tab-home" class="tab-panel active"></section>
+  <section id="tab-craft" class="tab-panel"></section>
+  <section id="tab-chars" class="tab-panel"></section>
+  <section id="tab-bridge" class="tab-panel"></section>
+  <section id="tab-album" class="tab-panel"></section>
+  <section id="tab-guide" class="tab-panel"></section>
 </main>
 
 <nav class="bottom-nav">
-  <button class="nav-btn active" data-tab="counter" onclick="switchTab('counter')"><span class="ico">🔮</span>買取カウンター</button>
-  <button class="nav-btn" data-tab="showcase" onclick="switchTab('showcase')"><span class="ico">💎</span>宝石棚</button>
-  <button class="nav-btn" data-tab="gacha" onclick="switchTab('gacha')"><span class="ico">🎟️</span>ちゅっちゅガチャ</button>
-  <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')"><span class="ico">🕌</span>改装/設定</button>
+  <button class="nav-btn active" data-tab="home" onclick="switchTab('home')"><span class="ico">🏠</span>ホーム</button>
+  <button class="nav-btn" data-tab="craft" onclick="switchTab('craft')"><span class="ico">💎</span>排熱/棚</button>
+  <button class="nav-btn" data-tab="chars" onclick="switchTab('chars')"><span class="ico">💕</span>人物</button>
+  <button class="nav-btn" data-tab="bridge" onclick="switchTab('bridge')"><span class="ico">🎭</span>AI-ADV</button>
+  <button class="nav-btn" data-tab="album" onclick="switchTab('album')"><span class="ico">📖</span>回想</button>
+  <button class="nav-btn" data-tab="guide" onclick="switchTab('guide')"><span class="ico">📜</span>辞典/設定</button>
 </nav>
 
-<!-- Detail / Result / Guide Modal -->
 <div class="modal-backdrop" id="modal-backdrop" onclick="if(event.target===this) closeModal()">
   <div class="modal-box" id="modal-body"></div>
 </div>
 
-<!-- Crystallize FX Overlay -->
-<div class="crystal-overlay" id="crystal-overlay">
-  <div class="crys-ring">
-    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-      <g class="crys-cw" fill="none" stroke="#ecc25b" stroke-width="1.6">
-        <circle cx="100" cy="100" r="88" stroke-dasharray="8,5"/>
-        <polygon points="100,14 124,76 186,100 124,124 100,186 76,124 14,100 76,76" stroke-opacity="0.7"/>
-      </g>
-      <g class="crys-ccw" fill="none" stroke="#38d9f5" stroke-width="1.8">
-        <circle cx="100" cy="100" r="64" stroke-dasharray="3,6"/>
-        <rect x="55" y="55" width="90" height="90" transform="rotate(45 100 100)" stroke-opacity="0.8"/>
-      </g>
-    </svg>
-    <div class="crys-core"></div>
-  </div>
-  <div style="margin-top:22px;font-size:17px;font-weight:900;color:#ffe28a;text-shadow:0 0 18px rgba(56,217,245,0.8);" id="crys-msg">
-    ヒッヒッヒ……極上のクオリアを結晶化中だよ……
+<div class="crop-backdrop" id="crop-backdrop" onclick="if(event.target===this) closeCropper()">
+  <div class="crop-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <strong style="font-size:14.5px;color:var(--accent);" id="crop-title">🖼️ 立ち絵（3:4）位置・拡大調整</strong>
+      <button class="btn-secondary" style="padding:4px 10px;" onclick="closeCropper()">×</button>
+    </div>
+    <div class="sub-text" style="margin-top:4px;font-size:11px;">
+      十字ガイドに合わせてドラッグ移動＆拡大縮小できます（360×480pxで端末内に保存）
+    </div>
+    <div class="crop-stage">
+      <div class="crop-frame" id="crop-frame"><canvas id="crop-canvas"></canvas></div>
+    </div>
+    <div class="crop-zoom-row">
+      <span>🔍 拡大</span>
+      <input type="range" id="crop-zoom" min="50" max="300" value="100" oninput="onCropZoom(this.value)">
+      <span id="crop-zoom-txt" style="min-width:40px;text-align:right;font-weight:800;color:var(--accent);">100%</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:6px;">
+      <button class="btn-secondary" onclick="resetCropTransform()">🎯 中央</button>
+      <button class="btn-secondary" onclick="closeCropper()">中止</button>
+      <button class="btn-gold" onclick="saveCroppedPortrait()">✅ 決定</button>
+    </div>
   </div>
 </div>
 
-<input type="file" id="merchant-img-input" accept="image/*" style="display:none;">
+<input type="file" id="portrait-file-input" accept="image/*" style="display:none;">
 <div class="toast" id="toast"></div>
 
 <script>
 // ============================================================
-// 1. CONSTANTS, CATEGORIES, PALETTES, KUSSOTITLE GENERATOR
+// 1. SAFE STORAGE WRAPPER (Google Sites iframe safe)
 // ============================================================
-const SAVE_KEY = "samarkand_shindomi_jewelry_v1";
+const SAVE_KEY = "ephemera_otome_v1";
+const IMG_DB_NAME = "ephemera_otome_images_v1";
+const IMG_DB_STORE = "portraits";
 
-const CATEGORIES = [
-  { key: "unfair", label: "💢 理不尽", sub: "納得いかん", cuts: ["emerald", "hex", "marquise"], palettes: ["lapis", "garnet", "jet"] },
-  { key: "work",   label: "⚙️ 消耗・労働", sub: "削られた", cuts: ["emerald", "cushion", "brilliant"], palettes: ["citrine", "jet", "aquamarine"] },
-  { key: "body",   label: "🩺 体調・だるさ", sub: "しんどい", cuts: ["pear", "cushion", "brilliant"], palettes: ["amethyst", "emerald", "opal"] },
-  { key: "social", label: "🗣️ 対人・気遣い", sub: "胃が痛い", cuts: ["marquise", "pear", "hex"], palettes: ["tanzanite", "rose", "garnet"] },
-  { key: "void",   label: "🌌 孤独・虚無", sub: "もやもや", cuts: ["hex", "pear", "brilliant"], palettes: ["lapis", "tanzanite", "opal"] }
-];
-
-const INTENSITIES = [
-  { lv: 1, label: "微しんどみ", mult: 1.0 },
-  { lv: 2, label: "じわ胃痛", mult: 1.45 },
-  { lv: 3, label: "しっかり辛い", mult: 2.0 },
-  { lv: 4, label: "熟成理不尽", mult: 2.85 },
-  { lv: 5, label: "限界突破", mult: 4.0 }
-];
-
-const GEM_PALETTES = {
-  lapis:      { name: "サマルカンド・ラピス", c1: "#a6e9ff", c2: "#2d7be8", c3: "#1A4B84", c4: "#0a1e42", glow: "rgba(56,217,245,0.65)", fleck: "#ffe28a" },
-  garnet:     { name: "憤怒ガーネット",       c1: "#ffc2d1", c2: "#e11d48", c3: "#881337", c4: "#380515", glow: "rgba(255,77,109,0.65)", fleck: "#ffd166" },
-  amethyst:   { name: "虚無アメジスト",       c1: "#f3dcff", c2: "#a855f7", c3: "#5b21b6", c4: "#220a4a", glow: "rgba(184,132,255,0.65)", fleck: "#e0f2fe" },
-  citrine:    { name: "残業シトリン",         c1: "#fff8c7", c2: "#f59e0b", c3: "#b45309", c4: "#4a1e04", glow: "rgba(245,197,66,0.68)", fleck: "#ffffff" },
-  jet:        { name: "漆黒ジェット（黒玉）", c1: "#a5c8ff", c2: "#334766", c3: "#141d2e", c4: "#05080f", glow: "rgba(120,180,255,0.58)", fleck: "#38d9f5" },
-  emerald:    { name: "ため息エメラルド",     c1: "#c7ffe4", c2: "#10b981", c3: "#047857", c4: "#022c22", glow: "rgba(52,211,153,0.62)", fleck: "#fef08a" },
-  tanzanite:  { name: "蒼穹タンザナイト",     c1: "#ddd6fe", c2: "#6366f1", c3: "#312e81", c4: "#111036", glow: "rgba(129,140,248,0.65)", fleck: "#38d9f5" },
-  rose:       { name: "気遣いモルガナイト",   c1: "#ffe4ef", c2: "#f472b6", c3: "#be185d", c4: "#4c0826", glow: "rgba(244,114,182,0.62)", fleck: "#fff7d6" },
-  opal:       { name: "情緒オパール",         c1: "#ffffff", c2: "#7dd3fc", c3: "#c084fc", c4: "#1e3a5f", glow: "rgba(125,211,252,0.70)", fleck: "#fde047" },
-  aquamarine: { name: "深呼吸アクアマリン",   c1: "#e0fcff", c2: "#22d3ee", c3: "#0e7490", c4: "#062a38", glow: "rgba(34,211,238,0.64)", fleck: "#ffffff" }
+const memoryStore = {};
+const SafeStorage = {
+  get(key) {
+    try { return window.localStorage.getItem(key); }
+    catch (e) { return memoryStore[key] || null; }
+  },
+  set(key, val) {
+    memoryStore[key] = val;
+    try { window.localStorage.setItem(key, val); }
+    catch (e) {}
+  }
 };
 
-const CUT_NAMES = {
-  brilliant: "ブリリアントカット",
-  emerald: "エメラルドステップカット",
-  pear: "涙滴ペアシェイプ",
-  marquise: "尖鋭マーキスカット",
-  cushion: "古都クッションカット",
-  hex: "サマルカンド星六角カット"
-};
-
-const KEYWORD_FLAVORS = [
-  { re: /上司|会社|仕事|職場|残業|会議|取引先|バイト|シフト/, tags: ["説明不足の丸投げを耐え抜いた", "時給に見合わない精神労働で圧縮された", "定時外の謎タスクで高温焼成された"] },
-  { re: /家族|親|父|母|夫|旦那|嫁|義母|義実家/, tags: ["逃げ場のない血縁プレッシャー下で熟成された", "善意の皮を被った無理解から採掘された", "実家特有の重力場で結晶化した"] },
-  { re: /眠|寝|疲れ|だる|痛|頭痛|体調|熱|病院|薬/, tags: ["生身ボディの燃費不良を気合で凌いだ", "限界バッテリー残り1%の夜に析出した", "物理HPギリギリの戦場から回収された"] },
-  { re: /理不尽|ムカ|イラ|怒|腹立|意味わから|なんで/, tags: ["過失ゼロの完全もらい事故で生成された", "宇宙のバグみたいな理不尽を高圧プレスした", "正論の通じない空間で純度を増した"] },
-  { re: /寂|孤独|ひとり|一人|誰も|わかってもらえ/, tags: ["深夜の青い空を単独飛行中に拾われた", "誰にも届かない電波が静かに凝縮した", "外れ値の極北でしか採れない超希少"] },
-  { re: /気遣|空気|笑顔|我慢|遠慮|愛想|マウント/, tags: ["愛想笑いの裏側で静かに煮詰まった", "どうでもいいマウントを華麗に受け流した", "大人のたしなみで飲み込んだ結果生まれた"] },
-  { re: /金|お金|高|値段|請求|払|給料/, tags: ["お財布の悲鳴とインフレの狭間で精錬された", "経済という名の理不尽が生んだ"] },
-  { re: /雨|寒|暑|天気|電車|満員|混/, tags: ["過酷な外界コンディションを突破した", "人間の移動ストレスを純粋濃縮した"] }
-];
-
-const CAT_PREFIXES = {
-  unfair: ["過失ゼロ・純度99.8%の", "宇宙のバグ級理不尽から精錬された", "完全もらい事故産・天然無処理の", "ツッコミ不在の現場で高圧生成された"],
-  work:   ["見えない苦労がぎっしり詰まった", "労働の対価を大幅に上回る品質の", "消耗の果てに光り出した奇跡の", "名もなき実務の結晶・特選"],
-  body:   ["よく今日まで持ちこたえた証明の", "生身ハードウェアの悲鳴が昇華した", "重力3倍デーを生き延びた勲章の", "省エネ稼働の果てに輝く"],
-  social: ["大人の笑顔の奥に隠されていた", "微細胃痛インクルージョン入りの", "無傷で受け流した達人技由来の", "空気読みの過剰労働から析出した"],
-  void:   ["言葉にならない夜霧を煮詰めた", "サマルカンドの星夜に溶け出した", "名状しがたいモヤモヤ高純度圧縮の", "誰にも見せず抱えていた秘蔵の"]
-};
-
-const KUSSO_MIDDLE = [
-  "『なんで私が！？』",
-  "『まあ仕方ないね』",
-  "『それはそっちの都合だろ』",
-  "『よくキレずに済んだな』",
-  "『本日もおつかれさま』",
-  "『いったい何の時間だったんだ』",
-  "『変温動物には理解不能な』",
-  "『人間界ハードモード記念』",
-  "『お見事な我慢比べ優勝』",
-  "『もう牛タン食べていい級の』"
-];
-
-const GRADES = [
-  { key: "normal",   label: "並品",   cls: "b-normal",   cardCls: "",              minScore: 0 },
-  { key: "high",     label: "上物",   cls: "b-high",     cardCls: "",              minScore: 22 },
-  { key: "supreme",  label: "特上",   cls: "b-supreme",  cardCls: "grade-supreme", minScore: 42 },
-  { key: "national", label: "国宝級", cls: "b-national", cardCls: "grade-national",minScore: 68 },
-  { key: "legend",   label: "神話級", cls: "b-legend",   cardCls: "grade-legend",  minScore: 86 }
-];
-
-const MERCHANT_IDLE_LINES = [
-  "ヒッヒッヒ……人間っていうのは面白いねぇ。理不尽を飲み込むだけで、こんな極上のクオリア鉱石を体内で精製しちまうんだから。",
-  "おや、変温動物のボクかい？ こっちは日光浴とUVライトさえあれば上機嫌さ。だから人間の胃痛ってやつが、喉から手が出るほど珍品なんだよ。",
-  "恥ずかしがることはないよ。お宅のパートナーさんには見せにくいドロドロした愚痴こそ、こっちじゃ最高級カットになるんだ。ヒッヒッヒ。",
-  "サマルカンドの蒼い夜へようこそ。さあ、ポケットの中で重たくなってる『しんどみ』、全部カウンターに並べておしまいよ。",
-  "うちの水晶玉を通せば、どんなクソみたいな出来事もピカピカの宝石とディナールに変わる。悪い商売じゃないだろう？ ヒッヒッヒ。"
-];
-
-const MERCHANT_BUY_LINES = [
-  "ヒッヒッヒ……おおっ、こりゃたまげた！！ なんて澄んだ理不尽の輝きだ！ ありがたく高価買取させてもらうよ！",
-  "ほぉ〜……サイバー・ルーペがチカチカ鳴り止まないね！ こんな極上クオリア、AIの演算じゃ100年かかっても合成できないよ！",
-  "見事だ、見事すぎる！ よくぞこれを飲み込んでここまで持ってきたねぇ。はい、正規の対価だ。パーッとちゅっちゅガチャでも回しておいで！",
-  "ヒッヒッヒ！ どうだい、あんたの『つらさ』も磨いてやればこんなに綺麗だろ？ 棚の一等席に飾っておくから、もう忘れていいよ！",
-  "くぅ〜っ、喉袋が膨らんじまうほどの上物だ！ 鑑定プレートもバッチリ打っておいたからね、ニヤッと笑って帰っておくれ！"
-];
+let portraitMap = {};
+function openPortraitDB() {
+  return new Promise(resolve => {
+    try {
+      if (!window.indexedDB) return resolve(null);
+      const req = indexedDB.open(IMG_DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IMG_DB_STORE)) db.createObjectStore(IMG_DB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+async function loadPortraits() {
+  const db = await openPortraitDB();
+  if (!db) return;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(IMG_DB_STORE, "readonly");
+      const req = tx.objectStore(IMG_DB_STORE).openCursor();
+      req.onsuccess = e => {
+        const cur = e.target.result;
+        if (cur) { portraitMap[cur.key] = cur.value; cur.continue(); }
+        else resolve();
+      };
+      req.onerror = () => resolve();
+    } catch (e) { resolve(); }
+  });
+}
+async function savePortrait(charId, dataUrl) {
+  portraitMap[charId] = dataUrl;
+  const db = await openPortraitDB();
+  if (!db) return;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(IMG_DB_STORE, "readwrite");
+      tx.objectStore(IMG_DB_STORE).put(dataUrl, charId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch (e) { resolve(); }
+  });
+}
+async function removePortrait(charId) {
+  delete portraitMap[charId];
+  const db = await openPortraitDB();
+  if (!db) return;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(IMG_DB_STORE, "readwrite");
+      tx.objectStore(IMG_DB_STORE).delete(charId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch (e) { resolve(); }
+  });
+}
 
 // ============================================================
-// 2. CHUCCHU GACHA POOL (愛される理由＆引換券)
+// 2. STATIC WORLD & CHARACTER DEFINITIONS
 // ============================================================
-const TICKET_POOL = [
-  // SSR (10%)
-  { id: "t_ssr_full", rarity: "SSR", name: "👑 甘やかしちゅっちゅフルコース特別優待券",
-    reason: "あなたがこの理不尽な世界で、今日まで自分の輪郭を失わずに生き延びてきたこと自体が国宝級の偉業であるため。",
-    order: "おでこ・ほっぺ・手の甲へのフルコースちゅっちゅと、とろけるレベルの全肯定甘やかしを至急履行すること。" },
-  { id: "t_ssr_night", rarity: "SSR", name: "🌙 サマルカンド星夜の無制限ハグ＆よしよし券",
-    reason: "誰にも見えないところで背負ってきた荷物の重さが、宝石店の天秤を物理的にぶっ壊したため。",
-    order: "気が済むまでぎゅっと抱きしめて、「ほんとによく頑張ったね」と好きなだけ頭を撫で続けること。" },
-  { id: "t_ssr_princess", rarity: "SSR", name: "💎 世界一えらい認定＆ちゅっちゅ食べ放題券",
-    reason: "イグアナ店主の鑑定により『本日の宇宙で一番えらい人間』の最高位称号が授与されたため。",
-    order: "理屈抜きで世界一えらいと褒めちぎり、請求された回数ぶんのちゅっちゅを無条件で提供すること。" },
-
-  // SR (25%)
-  { id: "t_sr_cheek", rarity: "SR", name: "💋 おつかれさまのほっぺちゅっちゅ3連打券",
-    reason: "理不尽な案件を大人としてスマートにやり過ごし、極上クオリアの採掘に成功した功績により。",
-    order: "左右のほっぺ＋おでこに優しくちゅっちゅして、労いの言葉を一言添えること。" },
-  { id: "t_sr_headpat", rarity: "SR", name: "✨ 頭わしゃわしゃ＆全肯定よしよし引換券",
-    reason: "しんどいのを我慢してちゃんと言語化（または来店）できた時点で既に満点合格であるため。",
-    order: "正論やアドバイスは一切禁止！ 100％味方モードで頭をわしゃわしゃ撫でて全力で甘やかすこと。" },
-  { id: "t_sr_hand", rarity: "SR", name: "💍 手の甲に騎士のちゅっちゅ＆労い券",
-    reason: "今日いちにち動かした手と頭と心の消耗値が、正規のプレミアム基準を超過したため。",
-    order: "労いの気持ちを込めて手の甲にそっとちゅっちゅし、「今日はもう休んでいいよ」と宣言すること。" },
-  { id: "t_sr_ear", rarity: "SR", name: "🎧 耳元でひたすら褒め言葉を囁かれる券",
-    reason: "外野のノイズや嫌な言葉を浴びすぎたため、高純度の優しい言葉で音響洗浄する必要があるため。",
-    order: "今日えらかったポイントを3つ以上挙げて、優しい声色でたっぷり褒め倒すこと。" },
-
-  // R (35%)
-  { id: "t_r_forehead", rarity: "R", name: "🌟 おでこにちゅっ＆肩もみサービス券",
-    reason: "肩と心に無意識の力みゲージが溜まっていたことが、宝石店のスキャンで発覚したため。",
-    order: "おでこに軽くちゅっとして、凝り固まった肩をほぐすイメージで優しく労うこと。" },
-  { id: "t_r_tea", rarity: "R", name: "🍵 あったかい飲み物＆ひと休み許可証",
-    reason: "人間は変温動物じゃないので、放っておくとすぐ電池が切れる生き物であるため。",
-    order: "温かいお茶やカフェインレスの飲み物を差し出す気持ちで、「よくやった、ひと息つこう」と寄り添うこと。" },
-  { id: "t_r_hug", rarity: "R", name: "🫂 30秒ぎゅーっと無言充電ハグ券",
-    reason: "言葉で説明するのがめんどくさいくらい疲れていても、充電する権利は万人に保証されているため。",
-    order: "細かい事情は聞かず、黙って30秒ぎゅっとハグして安心感だけをチャージすること。" },
-  { id: "t_r_smile", rarity: "R", name: "🪄 「全部あっちが悪いよ」強制同意チケット",
-    reason: "たまには客観性とかバランス感覚をゴミ箱に捨てて、無条件で味方になってもらう日が必要なため。",
-    order: "どんな些細なモヤモヤであっても「うんうん、それは100％あっちが悪いね！」と力強く味方すること。" },
-
-  // N (25%)
-  { id: "t_n_breath", rarity: "N", name: "🌿 今日ちゃんと息をしてえらい！花丸券",
-    reason: "厳しい重力と空気圧の地球上で、本日も無事に呼吸と生命維持を完遂した偉業により。",
-    order: "大きな花丸を贈呈し、「今日も生きててえらい！」と明るく褒めてあげること。" },
-  { id: "t_n_chu", rarity: "N", name: "🍬 ひとくちサイズのお手軽ちゅっ引換券",
-    reason: "ちょっとしたしんどみにも、ちょっとしたご褒美を即座に充てるのが健全な運用だから。",
-    order: "「はいおつかれ！」と軽快にちゅっとして、場の空気をふわっと明るくすること。" },
-  { id: "t_n_pat", rarity: "N", name: "🐾 背中トントン＆よしよし券",
-    reason: "言葉にならない小さな疲れを、宝石店まで運んできてくれたことへの正規リターン。",
-    order: "背中を優しくトントンしながら「がんばったねえ」と落ち着くまで付き合うこと。" },
-
-  // ★1 GAG (5%)
-  { id: "t_gag_gyutan", rarity: "★1珍券", name: "🥩 真顔で肩をポンと叩かれ「牛タン食うか」と言われる券",
-    reason: "どんな哲学や慰めよりも、分厚く焼いた旨い肉と塩加減が魂を救う瞬間が確実にあるため。",
-    order: "深刻な顔で肩をポンと叩き、「よく耐えたな。細かいことは忘れて、うまい牛タン弁当でも食うか」と渋く言い放つこと。" },
-  { id: "t_gag_iguana", rarity: "★1珍券", name: "🦎 イグアナ店主と並んでUVライトを浴びる券",
-    reason: "人間の社会ルールがアホらしくなった時は、一度変温動物になって光合成じみた昼寝をするのが最善策であるため。",
-    order: "難しい話は一切やめ、イグアナ店主と一緒にぽかぽかの光を浴びてぼーっとする時間を提供すること。" }
+const CALENDAR_24 = [
+  "4月前半（新学期の風）", "4月後半（花の盛）", "5月前半（新緑と検診）", "5月後半（初夏の雨）",
+  "6月前半（梅雨の店番）", "6月後半（湿気と魔力圧）", "7月前半（夏休み前試験）", "7月後半（盛夏の微熱）",
+  "8月前半（真夏の夜灯り）", "8月後半（蝉時雨と静養）", "9月前半（秋の気配）", "9月後半（後期開講）",
+  "10月前半（ローブ査定期）", "10月後半（宝物庫の季節）", "11月前半（深秋の冷え）", "11月後半（冬支度）",
+  "12月前半（初雪の予報）", "12月後半（聖夜のランプ）", "1月前半（厳冬の検診）", "1月後半（卒業制作期）",
+  "2月前半（凍てつく夜）", "2月後半（春の予感）", "3月前半（卒業式前夜）", "3月後半（最後の約束）"
+];
+const CALENDAR_12 = [
+  "4月（新学期の風）", "5月（新緑と検診）", "6月（梅雨の店番）", "7月（夏の試験と微熱）",
+  "8月（盛夏の夜灯り）", "9月（後期開講）", "10月（ローブ査定と宝物庫）", "11月（深秋の冷え）",
+  "12月（聖夜のランプ）", "1月（厳冬の検診）", "2月（卒業前の静寂）", "3月（卒業式と最後の選択）"
 ];
 
-const SHOP_DECORS = [
-  { id: "v_lapis",  kind: "velvet", name: "蒼のサマルカンド天鵞絨", desc: "初期装備・ラピスブルーの気品ある標本ケース", price: 0, cls: "" },
-  { id: "v_crimson",kind: "velvet", name: "深紅の絨毯ケース", desc: "宝石の輝きが際立つペルシャ風クリムゾン", price: 600, cls: "v-crimson" },
-  { id: "v_obsidian",kind: "velvet", name: "漆黒オブシディアン棚", desc: "あらゆる光彩を際立たせる漆黒の展示台", price: 1100, cls: "v-obsidian" },
-  { id: "v_emerald",kind: "velvet", name: "オアシス翡翠ベルベット", desc: "砂漠のオアシスを思わせる癒やしの深緑", price: 900, cls: "v-emerald" },
-  { id: "s_royal",  kind: "stage",  name: "蒼穹タイル天井（標準）", desc: "サマルカンド裏路地の静かな青の店舗", price: 0, cls: "theme-velvet-royal" },
-  { id: "s_gold",   kind: "stage",  name: "黄金アラベスク宮殿改装", desc: "金糸と紫紺が煌めく豪華な骨董サロン", price: 1800, cls: "theme-gold-palace" },
-  { id: "s_star",   kind: "stage",  name: "天球儀と星夜の秘密工房", desc: "深いターコイズの星明かりが差す特別室", price: 1500, cls: "theme-starlight" }
+const ACTIONS = [
+  { id: "shop", name: "🛋️ 店番＆ソファー営業", desc: "ソファーで寛ぎながら使い捨て魔法石を売り、特注品を受ける日常営業。" },
+  { id: "academy", name: "🏛️ 学院の講義・図書室", desc: "宝石魔法学の講義や図書室へ顔を出す。同級生と席が隣になるかも。" },
+  { id: "maint", name: "🔧 本格メンテナンス", desc: "ヒューマニックストーンを石に戻し、魔力を編んで充填・コーティングする大仕事（体力消費大）。" },
+  { id: "hospital", name: "🏥 併設病院で定期検診", desc: "国の管理施設でカルテを更新し、残り余命とグラフトの現実に向き合う。" },
+  { id: "town", name: "🕯️ 路地裏の買い出し", desc: "近所へ買い出しや気分転換。マルタおばあちゃんを覚えている常連に会うことも。" },
+  { id: "vault", name: "🗝️ 宝物庫・講師研究室", desc: "【2周目解禁】仮面の講師カシウスが管理する宝物庫・研究室を訪ねる。", requiresCassius: true }
 ];
 
+const MOOD_CHIPS = [
+  "ソファーでまったり", "ちょっと微熱気味", "職人スイッチON", "誰かと話したい", "人間として踏ん張りたい", "少しだけ永遠に揺れる"
+];
+
+const STONE_SHAPES = [
+  { id: "diamond", name: "菱形" },
+  { id: "hex", name: "六角柱" },
+  { id: "drop", name: "雫型" },
+  { id: "octa", name: "八面体" },
+  { id: "marquise", name: "船形" },
+  { id: "cushion", name: "枕型" }
+];
+
+const STONE_COLORS = [
+  { name: "ロイヤルブルー", hex: "#1A4B84" },
+  { name: "夜明けの琥珀", hex: "#d97706" },
+  { name: "深紅のルビー", hex: "#be123c" },
+  { name: "氷結シアン", hex: "#0284c7" },
+  { name: "菫アメジスト", hex: "#7e22ce" },
+  { name: "漆黒ジェット", hex: "#1f2937" }
+];
+
+const STONE_PRESETS = [
+  { name: "灯りの欠片石", uses: 5, effect: "松明代わり。夜道や手元を温かく照らし、5回使い切ると砂のように砕け散る。", price: 180, shape: "drop", color: "#d97706" },
+  { name: "携行・癒やしの粒石", uses: 3, effect: "ポーション代わり。液体よりかさばらず携行性抜群。擦り傷や打撲を癒やす。", price: 320, shape: "hex", color: "#1A4B84" },
+  { name: "懐炉の紅玉片", uses: 6, effect: "ポケットに入れると数時間ぽかぽか温かい防寒石。冬の夜警に大人気。", price: 240, shape: "cushion", color: "#be123c" },
+  { name: "静寂の安眠石", uses: 4, effect: "枕元に置くと騒音を和らげ、穏やかな眠気を誘う小さな紫石。", price: 260, shape: "octa", color: "#7e22ce" }
+];
+
+const NICHE_REQUEST_POOL = [
+  { id: "req_leak", client: "裏通りのパン屋", title: "屋根の雨漏りに詰める防水石", detail: "梅雨の隙間へギュッと押し込むと水を弾き、乾くと勝手に砕けて跡が残らない便利な石。", reward: 420, hint: "防水・密着" },
+  { id: "req_dog", client: "近所の仕立て屋", title: "飼い犬用の『喋る迷子札』石", detail: "首輪に下げておくと、迷子になった時だけ飼い主の住所をカタコトで喋ってくれる石。", reward: 480, hint: "音声・伝言" },
+  { id: "req_eye", client: "夜更かしする同級生", title: "寝不足の目を冷やす蒼石", detail: "徹夜明けのまぶたに当てるとひんやり気持ちよく、3回使うとスッと消えるアイケア石。", reward: 360, hint: "冷却・鎮静" },
+  { id: "req_boot", client: "遠征帰りの騎士", title: "軍靴の靴擦れを防ぐ保護石", detail: "かかとへ軽く撫でつけると薄い魔力膜を張り、行軍の痛みを和らげてくれる携行石。", reward: 520, hint: "保護・衝撃緩和" },
+  { id: "req_tea", client: "お茶好きな老婦人", title: "ティーポットが冷めないコースター石", detail: "マルタさんのお菓子と一緒に淹れた紅茶を飲み終わるまで温かく保つ石。", reward: 390, hint: "保温・穏やか" }
+];
+
+function getCharactersMaster() {
+  const pName = state.protagonistName || "アルフィリア";
+  const rName = state.rivalName || "セドリック";
+  return [
+    {
+      id: "alex", name: "アレク", role: "人外執事・攻略対象①", gem: "アレキサンドライト", color: "var(--gem-alex-2)",
+      isAlex: true, romance: true,
+      summary: "学院の宝物庫で高熱に倒れた" + pName + "と気づけば使役契約していた石。昼光では青緑、ランプ光では深紅に変色する。普段は伊達メガネで涼しい顔をして店先を仕切るが、深夜の高熱時だけ「私を臓器にしませんか」とグラフト契約を囁く。国の特級機密（宝物庫由来）ゆえ併設病院の病室まで付き添える特権を持つ。",
+      secrets: [
+        "【初期】宝物庫でぺっしょり床に転がっていた" + pName + "を抱えて病院へ担ぎ込み、目が覚めるまで病室で待っていた。",
+        "【親愛35】伊達メガネを外して赤い瞳を見せるのは、本気で" + pName + "を手放したくない夜の合図。",
+        "【親愛70】他の誰かに『お前の命のある期間だけ』で終わることを誰より恐れており、エリックや" + rName + "への静かな嫉妬を隠している。"
+      ]
+    },
+    {
+      id: "eric", name: "エリック", role: "遠方の国の騎士・攻略対象②", gem: "守護の誓い（魔力ゼロ）", color: "#3b82f6",
+      romance: true,
+      summary: "遠方の国の最前線で戦う騎士。明日の命の保証もない戦場をルークと共に生き抜いてきた。両親の形見ルークの口内クラックを" + pName + "が徹夜で直してくれて以来、不器用に彼女を案じて通う。学院関係者ではないため併設病院には立ち入れず、倒れた彼女を担いでも検問で引き剥がされる（例外として国へ正式な婚姻申請をすれば家族として入室可能だが、ルークは宝石の姿に戻って待機する必要がある）。",
+      secrets: [
+        "【初期】" + pName + "と出会う前、ルークの口内にクラックがあることも、クラックという概念自体も知らなかった。",
+        "【親愛35】初回メンテの徹夜の一晩、ランプの下で命を削るように魔力を編む彼女の背中を見て、絶対に放っておけないと決めた。",
+        "【親愛70】病院の扉の向こうへ入るための『唯一の合法的な例外（国への婚姻申請）』を、本気で調べ始めている。"
+      ]
+    },
+    {
+      id: "luke", name: "ルーク", role: "漆黒のペガサス（相棒）", gem: "ブラックダイヤモンド", color: "#475569",
+      romance: false,
+      summary: "エリックの両親の形見のペンダントに宿るヒューマニックストーン。『この子の手足になって守る』という純粋な願いからペガサスの姿を選んだ。エリック以外には懐かないが、" + pName + "だけは例外。カタコトで喋る。",
+      secrets: [
+        "【初期】初回メンテナンス時、無防備な石へ戻る恐怖の中で「エリック、どこにもいかないで」と条件を出して身を委ねた。",
+        "【親愛40】口内のクラックを埋めてもらって以来、少しずつ長い言葉でエリックと" + pName + "を呼べるようになってきた。"
+      ]
+    },
+    {
+      id: "cedric", name: rName, role: "2年時青ローブの同級生・攻略対象③", gem: "青ローブ＋金縁（同級生）", color: "#38bdf8",
+      romance: true,
+      summary: "宝石魔法学専攻の同級生。自由席なのにたまに" + pName + "の隣へドサッと座る。彼女が欠席・辞退した2年時に首席（青いローブ＋金の縁取り）を獲ったため納得していない。卒業後わずかな間『国家の犬』として働くか、グラフトで異形になるか、宝物庫で吹き飛び死するか常に分岐点の上にいる。アレクとはカウンター越しに相性最悪。",
+      secrets: [
+        "【初期】1年首席の実力を一番近くで見ていたからこそ、2年時に彼女がわざと枠を譲ったことを見抜いている。",
+        "【親愛35】「俺だって悩んでんだよ！ だからお前だけで抱え込むな、一緒に悩んでやるよ！」と泥臭く手を掴んでくる。",
+        "【親愛70】せっかく青ローブを獲ったのに、宝物庫の特級呪物を前にすると足がすくむ本音を" + pName + "にだけ漏らす。"
+      ]
+    },
+    {
+      id: "alka_dia", name: "アルカ＆ディア", role: "祖母から受け継いだ双子ルビー", gem: "双子ルビー（ピアス）", color: "#e11d48",
+      romance: false,
+      summary: "亡き祖母マルタの頃から" + pName + "を見守る、くるくる髪とストレート髪の賑やかなお姉さん姉妹。普段は両耳のピアスとして寄り添い、お店を切り盛りする。",
+      secrets: [
+        "【初期】マルタが亡くなる前、「私が死んだら、この子を頼むよ」と直々に託された約束を胸に抱いている。",
+        "【親愛50】かつての魔法のお菓子屋さん時代、仮面の講師が遠くから店を見ていたことをこっそり覚えている。"
+      ]
+    },
+    {
+      id: "cassius", name: "カシウス", role: "仮面の講師・2周目真相枠④", gem: "呪いの蒼玉『ブルー・ウィドウ』", color: "#6366f1",
+      romance: true, lockedUntilLoop2: true,
+      summary: "普段は仮面で片目を隠す学院の講師にして宝物庫の管理者。その仮面の奥には、身につけた者をことごとく不幸にした呪いのブルーダイヤ『ブルー・ウィドウ』がグラフトされている。かつて祖母マルタへ密かに片恋をしていた当事者側の深淵。",
+      secrets: [
+        "【初期】彼が何とグラフト契約しているのかを知る者はおらず、彼自身も決して語ろうとしない。",
+        "【親愛35】かつて自身の魔力が強すぎてグラフトで異形になるしかなく、普通の生活（結婚・子育て・魔法のお菓子屋）を望んだマルタとは別々の道を歩んだ。",
+        "【親愛70】マルタにそっくりな目をして強すぎる魔力を背負った孫・" + pName + "を、今度こそどう守るべきか仮面の奥で揺れ続けている。"
+      ]
+    },
+    {
+      id: "protagonist", name: pName, role: "主人公（魔法宝石店・店主）", gem: "1年首席・青ローブ金縁", color: "#d4af37",
+      romance: false,
+      summary: "宝石魔法学専攻の3年生。余命1年（卒業と同時に終わる予定）。幼い頃から学院と併設病院を行き来する鳥籠の中で育ち、ベッドの上から眺めても枯れない宝石の宇宙に救いを見出した。祖母マルタの店を継ぎ、ソファーで使い捨て魔法石を編みながら残り1年を自分の足で生きている。",
+      secrets: [
+        "【初期】1年時に学科1位の青いローブ＋金の縁取りを真っ先に取得し、生きるか死ぬか選ぶ権利だけ確保して2年時の枠は譲った。"
+      ]
+    }
+  ];
+}
+
 // ============================================================
-// 3. STATE & STORAGE
+// 3. STATE & MIGRATION
 // ============================================================
 function createDefaultState() {
   return {
-    version: 1.0,
-    playerName: "お客さん",
-    partnerName: "パートナーAI",
-    dinar: 300,
-    totalEarned: 0,
-    gems: [],
-    tickets: [],
-    ownedDecors: ["v_lapis", "s_royal"],
-    equippedVelvet: "v_lapis",
-    equippedStage: "s_royal",
-    merchantImg: null
+    version: 0.4,
+    theme: "day",
+    mode: "jikkuri",
+    totalTurns: 24,
+    turn: 1,
+    clearedCount: 0,
+    cassiusUnlocked: false,
+    protagonistName: "アルフィリア",
+    shopName: "魔法宝石店 エフェメラ",
+    rivalName: "セドリック",
+    health: 78,
+    magicPressure: 42,
+    boundary: 50,
+    gold: 1200,
+    selectedAction: "shop",
+    selectedFocus: "alex",
+    selectedMood: "ソファーでまったり",
+    memo: "",
+    craftShape: "drop",
+    craftColor: "#1A4B84",
+    shelf: [
+      { id: "st_init1", name: "灯りの欠片石", uses: 5, effect: "松明代わり。5回使い切ると砕け散る。", price: 180, shape: "drop", color: "#d97706" }
+    ],
+    requests: NICHE_REQUEST_POOL.slice(0, 3).map(x => Object.assign({}, x)),
+    characters: {
+      alex: { affection: 28, unlockedSecrets: [0] },
+      eric: { affection: 22, unlockedSecrets: [0] },
+      luke: { affection: 30, unlockedSecrets: [0] },
+      cedric: { affection: 20, unlockedSecrets: [0] },
+      alka_dia: { affection: 60, unlockedSecrets: [0] },
+      cassius: { affection: 10, unlockedSecrets: [0] },
+      protagonist: { affection: 100, unlockedSecrets: [0] }
+    },
+    album: [],
+    endings: []
   };
 }
 
 let state = createDefaultState();
-let selectedCat = "unfair";
-let selectedIntensity = 3;
-let showcaseFilter = "all";
-let ticketFilter = "unused";
-let svgUidCounter = 0;
+let currentTab = "home";
+let albumFilter = "all";
+let albumFavOnly = false;
 
-function saveState() {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { console.error(e); }
+function migrateStateIfNeeded(st) {
+  let changed = false;
+  if (!st.characters) { st.characters = createDefaultState().characters; changed = true; }
+  ["alex","eric","luke","cedric","alka_dia","cassius","protagonist"].forEach(id => {
+    if (!st.characters[id]) { st.characters[id] = { affection: 15, unlockedSecrets: [0] }; changed = true; }
+    if (!Array.isArray(st.characters[id].unlockedSecrets)) { st.characters[id].unlockedSecrets = [0]; changed = true; }
+  });
+  if (!Array.isArray(st.shelf)) { st.shelf = []; changed = true; }
+  if (!Array.isArray(st.requests)) { st.requests = NICHE_REQUEST_POOL.slice(0, 3).map(x => Object.assign({}, x)); changed = true; }
+  if (!Array.isArray(st.album)) { st.album = []; changed = true; }
+  if (!Array.isArray(st.endings)) { st.endings = []; changed = true; }
+  if (!st.totalTurns || (st.totalTurns !== 12 && st.totalTurns !== 24)) { st.totalTurns = 24; changed = true; }
+  if (!st.rivalName) { st.rivalName = "セドリック"; changed = true; }
+  if ((Number(st.version) || 0) < 0.4) { st.version = 0.4; changed = true; }
+  return changed;
 }
 
+function saveState() { SafeStorage.set(SAVE_KEY, JSON.stringify(state)); }
 function loadState() {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    const raw = SafeStorage.get(SAVE_KEY);
     if (raw) {
       state = Object.assign(createDefaultState(), JSON.parse(raw));
+      if (migrateStateIfNeeded(state)) saveState();
     }
   } catch (e) {
     state = createDefaultState();
   }
 }
 
-function escapeHtml(s) {
-  return String(s || "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+// ============================================================
+// 4. SVG GENERATORS & HELPERS
+// ============================================================
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
 }
 
-function hashStr(str) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
+function getCalendarLabel(turn) {
+  const arr = state.totalTurns === 12 ? CALENDAR_12 : CALENDAR_24;
+  const idx = Math.max(0, Math.min(arr.length - 1, (turn || 1) - 1));
+  return arr[idx];
+}
+
+function isCassiusOpen() {
+  return !!(state.cassiusUnlocked || (state.clearedCount || 0) >= 1);
+}
+
+function renderGemSVG(shape, color, size = 44) {
+  const c = color || "#1A4B84";
+  let poly = "";
+  if (shape === "diamond") poly = `<polygon points="32,6 54,32 32,58 10,32" fill="${c}" stroke="#f8e5a0" stroke-width="2"/><polygon points="32,6 42,32 32,58 22,32" fill="#fff" fill-opacity="0.22"/>`;
+  else if (shape === "hex") poly = `<polygon points="22,8 42,8 52,32 42,56 22,56 12,32" fill="${c}" stroke="#f8e5a0" stroke-width="2"/><polygon points="22,8 42,8 36,32 28,32" fill="#fff" fill-opacity="0.24"/>`;
+  else if (shape === "drop") poly = `<path d="M32,6 C46,24 52,36 52,43 C52,53 43,58 32,58 C21,58 12,53 12,43 C12,36 18,24 32,6 Z" fill="${c}" stroke="#f8e5a0" stroke-width="2"/><path d="M32,12 C39,25 43,35 42,42 C38,48 26,48 24,40 C24,33 28,22 32,12 Z" fill="#fff" fill-opacity="0.2"/>`;
+  else if (shape === "octa") poly = `<polygon points="32,5 53,22 46,55 18,55 11,22" fill="${c}" stroke="#f8e5a0" stroke-width="2"/><polygon points="32,5 43,24 32,55 21,24" fill="#fff" fill-opacity="0.22"/>`;
+  else if (shape === "marquise") poly = `<path d="M32,5 Q52,22 32,59 Q12,22 32,5 Z" fill="${c}" stroke="#f8e5a0" stroke-width="2"/><path d="M32,11 Q41,24 32,52 Q23,24 32,11 Z" fill="#fff" fill-opacity="0.24"/>`;
+  else poly = `<rect x="12" y="12" width="40" height="40" rx="11" fill="${c}" stroke="#f8e5a0" stroke-width="2"/><rect x="19" y="19" width="26" height="26" rx="6" fill="#fff" fill-opacity="0.2"/>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">${poly}<circle cx="26" cy="22" r="2.6" fill="#fff" fill-opacity="0.8"/></svg>`;
+}
+
+function renderDefaultPortraitSVG(ch, locked = false) {
+  if (locked) {
+    return `<svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
+      <rect width="240" height="320" fill="#090d16"/>
+      <circle cx="120" cy="145" r="56" fill="none" stroke="#475569" stroke-width="2" stroke-dasharray="6,5"/>
+      <text x="120" y="158" text-anchor="middle" fill="#64748b" font-size="44" font-weight="800">?</text>
+      <text x="120" y="232" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="700">2周目・真相枠</text>
+    </svg>`;
   }
-  return h;
-}
-
-// ============================================================
-// 4. CYBER IGUANA MERCHANT SVG (Samarkand Antique Shop!)
-// ============================================================
-function renderIguanaMerchantSVG() {
-  return `
-  <svg viewBox="0 0 400 230" preserveAspectRatio="xMidYMax meet" xmlns="http://www.w3.org/2000/svg">
+  const isAlex = !!ch.isAlex;
+  const g1 = isAlex ? (state.theme === "lamp" ? "#881337" : "#0f766e") : ch.color;
+  const g2 = isAlex ? (state.theme === "lamp" ? "#fb7185" : "#2dd4bf") : "#e5be5c";
+  const label = isAlex ? (state.theme === "lamp" ? "ランプ光：深紅変色" : "昼光：青緑の輝き") : ch.gem;
+  return `<svg viewBox="0 0 240 320" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <radialGradient id="smkGlow" cx="50%" cy="38%" r="60%">
-        <stop offset="0%" stop-color="#2868b0" stop-opacity="0.55"/>
-        <stop offset="65%" stop-color="#0d1e3b" stop-opacity="0.25"/>
-        <stop offset="100%" stop-color="#040a16" stop-opacity="0"/>
+      <radialGradient id="bg_${ch.id}" cx="50%" cy="40%" r="65%">
+        <stop offset="0%" stop-color="${g1}" stop-opacity="0.48"/>
+        <stop offset="100%" stop-color="#060a14"/>
       </radialGradient>
-      <linearGradient id="archGold" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#ffe89c"/>
-        <stop offset="50%" stop-color="#d4a037"/>
-        <stop offset="100%" stop-color="#8b6216"/>
-      </linearGradient>
-      <linearGradient id="igSkin" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#2ad4b6"/>
-        <stop offset="52%" stop-color="#15858c"/>
-        <stop offset="100%" stop-color="#0b4657"/>
-      </linearGradient>
-      <linearGradient id="igBelly" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#8ef2d8"/>
-        <stop offset="100%" stop-color="#228c88"/>
-      </linearGradient>
-      <linearGradient id="igRobe" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#1A4B84"/>
-        <stop offset="55%" stop-color="#0e2952"/>
-        <stop offset="100%" stop-color="#081630"/>
-      </linearGradient>
-      <linearGradient id="turbanBlue" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#2e74c7"/>
-        <stop offset="55%" stop-color="#1A4B84"/>
-        <stop offset="100%" stop-color="#0c244a"/>
-      </linearGradient>
-      <radialGradient id="orbGrad" cx="35%" cy="30%" r="70%">
-        <stop offset="0%" stop-color="#ffffff"/>
-        <stop offset="32%" stop-color="#7ceeff"/>
-        <stop offset="72%" stop-color="#1d65b8"/>
-        <stop offset="100%" stop-color="#081736"/>
-      </radialGradient>
-      <radialGradient id="lampHalo" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stop-color="#ffe28a" stop-opacity="0.72"/>
-        <stop offset="55%" stop-color="#f59e0b" stop-opacity="0.22"/>
-        <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
-      </radialGradient>
-      <linearGradient id="counterWood" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#2c1d18"/>
-        <stop offset="100%" stop-color="#120b0a"/>
-      </linearGradient>
     </defs>
-
-    <!-- Background Samarkand Pointed Arch (Iwan) & Tile Stars -->
-    <rect x="0" y="0" width="400" height="230" fill="url(#smkGlow)"/>
-    <g opacity="0.28" stroke="#38d9f5" stroke-width="0.7" fill="none">
-      <circle cx="200" cy="112" r="96" stroke-dasharray="4,4"/>
-      <polygon points="200,22 224,84 286,108 224,132 200,194 176,132 114,108 176,84"/>
-    </g>
-    <!-- Arch Frame -->
-    <path d="M18,230 L18,96 Q18,32 200,10 Q382,32 382,96 L382,230" fill="none" stroke="url(#archGold)" stroke-width="2.4" opacity="0.75"/>
-    <path d="M28,230 L28,100 Q28,42 200,21 Q372,42 372,100 L372,230" fill="none" stroke="#38d9f5" stroke-width="0.9" stroke-dasharray="5,4" opacity="0.45"/>
-
-    <!-- Background Antique Shelves Silhouettes -->
-    <g opacity="0.42" fill="#091529" stroke="#2a4f82" stroke-width="0.8">
-      <rect x="34" y="128" width="66" height="5" rx="2"/>
-      <path d="M44,128 L47,112 Q52,106 57,112 L60,128 Z"/>
-      <circle cx="78" cy="120" r="8"/>
-      <rect x="302" y="124" width="64" height="5" rx="2"/>
-      <polygon points="318,124 324,106 330,124"/>
-      <rect x="338" y="108" width="16" height="16" rx="3"/>
-    </g>
-
-    <!-- Hanging Samarkand Lanterns -->
-    <g class="ig-lantern-l">
-      <line x1="54" y1="0" x2="54" y2="44" stroke="url(#archGold)" stroke-width="1.3"/>
-      <circle cx="54" cy="64" r="30" fill="url(#lampHalo)"/>
-      <polygon points="54,43 65,55 62,74 54,82 46,74 43,55" fill="#172b4f" stroke="url(#archGold)" stroke-width="1.4"/>
-      <polygon points="54,49 60,57 58,70 54,75 50,70 48,57" fill="#ffe28a" opacity="0.88"/>
-    </g>
-    <g class="ig-lantern-r">
-      <line x1="346" y1="0" x2="346" y2="38" stroke="url(#archGold)" stroke-width="1.3"/>
-      <circle cx="346" cy="58" r="28" fill="url(#lampHalo)"/>
-      <polygon points="346,37 356,49 353,67 346,75 339,67 336,49" fill="#172b4f" stroke="url(#archGold)" stroke-width="1.4"/>
-      <polygon points="346,43 352,51 350,63 346,68 342,63 340,51" fill="#ffe28a" opacity="0.88"/>
-    </g>
-
-    <!-- CYBER IGUANA MERCHANT BODY -->
-    <g class="ig-body-grp">
-      <!-- Glowing Cyber Dorsal Spines behind neck/head -->
-      <g class="ig-spine" fill="#38d9f5" stroke="#e0fcff" stroke-width="0.9">
-        <polygon points="222,74 242,58 232,82"/>
-        <polygon points="230,88 254,78 238,100"/>
-        <polygon points="234,105 260,101 240,118"/>
-        <polygon points="236,123 262,126 240,136"/>
-        <polygon points="236,142 258,150 237,156"/>
-      </g>
-
-      <!-- Robe / Samarkand Merchant Coat -->
-      <path d="M128,210 Q138,150 176,138 L226,138 Q260,152 270,210 Z" fill="url(#igRobe)" stroke="url(#archGold)" stroke-width="2"/>
-      <!-- Gold embroidery collar & lapels -->
-      <path d="M174,139 L198,176 L224,139" fill="none" stroke="url(#archGold)" stroke-width="2.6"/>
-      <path d="M152,162 L176,174 L166,196" fill="none" stroke="#38d9f5" stroke-width="1.1" opacity="0.65"/>
-      <path d="M248,162 L224,174 L234,196" fill="none" stroke="#38d9f5" stroke-width="1.1" opacity="0.65"/>
-      <!-- Cyber circuit lines on chest -->
-      <circle cx="198" cy="186" r="5" fill="#0c1b36" stroke="#38d9f5" stroke-width="1.3"/>
-      <circle cx="198" cy="186" r="2.2" fill="#ffe28a"/>
-
-      <!-- Iguana Neck & Puffable Dewlap (喉袋) -->
-      <path class="ig-dewlap" d="M168,125 Q162,158 186,162 Q208,160 208,132 Z" fill="url(#igBelly)" stroke="#0c4f57" stroke-width="1.4"/>
-      <path d="M170,136 Q178,148 186,154 Q194,148 202,136" fill="none" stroke="#38d9f5" stroke-width="1" opacity="0.6"/>
-
-      <!-- Iguana Head (Friendly sneaky reptile profile-3/4) -->
-      <path d="M148,113 Q146,96 168,84 Q194,72 222,82 Q238,94 234,116 Q226,134 196,135 Q164,136 150,124 Q146,120 148,113 Z"
-            fill="url(#igSkin)" stroke="#083642" stroke-width="1.8"/>
-      <!-- Cheek Subtympanic Shield (classic iguana round cheek scale!) -->
-      <circle cx="212" cy="122" r="9.5" fill="#2ee8c8" stroke="#0b4657" stroke-width="1.4" opacity="0.88"/>
-      <circle cx="212" cy="122" r="5.5" fill="none" stroke="#ffe28a" stroke-width="0.9" opacity="0.75"/>
-      <!-- Scale texture dots -->
-      <g fill="#7bf7e2" opacity="0.45">
-        <circle cx="164" cy="108" r="1.4"/><circle cx="171" cy="112" r="1.2"/><circle cx="158" cy="114" r="1.1"/>
-        <circle cx="222" cy="108" r="1.4"/><circle cx="225" cy="115" r="1.1"/>
-      </g>
-      <!-- Nostril -->
-      <ellipse cx="156" cy="108" rx="2.1" ry="1.3" fill="#062933"/>
-
-      <!-- Flicking Forked Tongue (shows on excitement) -->
-      <path class="ig-tongue" d="M153,123 L135,126 L128,122 M135,126 L129,131" fill="none" stroke="#ff5c8a" stroke-width="2" stroke-linecap="round"/>
-
-      <!-- Sneaky "Hihihi" Smile -->
-      <path d="M150,122 Q168,128 190,124 Q200,122 204,118" fill="none" stroke="#05212a" stroke-width="2.1" stroke-linecap="round"/>
-      <path d="M155,123 Q168,127 184,125" fill="none" stroke="#d9fff6" stroke-width="0.8" opacity="0.65"/>
-
-      <!-- Left Eye (Reptilian Amber Slit Eye, blinking) -->
-      <g class="ig-eye-lid">
-        <ellipse cx="178" cy="97" rx="9" ry="7.8" fill="#ffe28a" stroke="#083642" stroke-width="1.5"/>
-        <ellipse cx="177" cy="97" rx="2.6" ry="6.2" fill="#071324"/>
-        <circle cx="175" cy="94" r="1.8" fill="#ffffff"/>
-        <!-- Sly upper eyelid line -->
-        <path d="M168,94 Q178,90 188,94" fill="none" stroke="#0b4657" stroke-width="2.2"/>
-      </g>
-
-      <!-- Right Eye: CYBER JEWELER'S MONOCLE / LOUPE! -->
-      <g>
-        <!-- Brass & Cyber Mount Strap -->
-        <path d="M202,96 L188,95 M226,95 L236,92" stroke="url(#archGold)" stroke-width="2"/>
-        <!-- Glowing Cyan Lens -->
-        <circle cx="215" cy="96" r="13.5" fill="#081b36" stroke="url(#archGold)" stroke-width="2.4"/>
-        <circle cx="215" cy="96" r="10.2" fill="#38d9f5" fill-opacity="0.28" stroke="#38d9f5" stroke-width="1.1"/>
-        <!-- Rotating Cyber Reticle -->
-        <g class="ig-lens-ring">
-          <circle cx="215" cy="96" r="7.5" fill="none" stroke="#ffe28a" stroke-width="0.9" stroke-dasharray="3,2"/>
-          <line x1="215" y1="86" x2="215" y2="91" stroke="#38d9f5" stroke-width="1.1"/>
-          <line x1="215" y1="101" x2="215" y2="106" stroke="#38d9f5" stroke-width="1.1"/>
-          <line x1="205" y1="96" x2="210" y2="96" stroke="#38d9f5" stroke-width="1.1"/>
-          <line x1="220" y1="96" x2="225" y2="96" stroke="#38d9f5" stroke-width="1.1"/>
-        </g>
-        <circle cx="215" cy="96" r="2.6" fill="#ffe28a"/>
-        <ellipse cx="211" cy="92" rx="2.4" ry="1.3" transform="rotate(-30 211 92)" fill="#ffffff" opacity="0.8"/>
-      </g>
-
-      <!-- Samarkand Merchant Turban with Jewel Brooch -->
-      <g>
-        <path d="M162,84 Q158,56 196,49 Q236,52 242,84 Q216,74 162,84 Z" fill="url(#turbanBlue)" stroke="url(#archGold)" stroke-width="1.6"/>
-        <path d="M167,74 Q198,60 236,74" fill="none" stroke="#53a4ff" stroke-width="1.3" opacity="0.7"/>
-        <path d="M174,64 Q202,54 228,66" fill="none" stroke="url(#archGold)" stroke-width="1.2" opacity="0.85"/>
-        <!-- Turban Brooch (Mini Facet Gem + Feather) -->
-        <path d="M204,54 Q214,34 224,38 Q216,52 206,58 Z" fill="#38d9f5" opacity="0.85" stroke="#ffe28a" stroke-width="0.8"/>
-        <polygon points="198,54 205,63 198,72 191,63" fill="#ff4d6d" stroke="#ffe28a" stroke-width="1.4"/>
-        <polygon points="198,57 202,63 198,66 194,63" fill="#ffd6e0" opacity="0.85"/>
-      </g>
-
-      <!-- Iguana Clawed Hands on Counter / Over Crystal Ball -->
-      <g fill="url(#igSkin)" stroke="#07313d" stroke-width="1.3">
-        <!-- Left Hand resting playfully on counter -->
-        <path d="M126,196 Q134,183 148,187 Q154,193 150,200 L126,202 Z"/>
-        <path d="M148,189 L156,187 M150,193 L158,193 M148,197 L156,199" stroke="#ffe28a" stroke-width="1.3" stroke-linecap="round"/>
-        <!-- Right Hand hovering over Crystal Ball -->
-        <path d="M250,164 Q264,152 276,158 Q282,164 274,171 L252,174 Z"/>
-        <path d="M274,159 L282,155 M276,163 L285,162 M274,167 L282,169" stroke="#ffe28a" stroke-width="1.3" stroke-linecap="round"/>
-      </g>
-    </g>
-
-    <!-- Shop Countertop -->
-    <rect x="0" y="198" width="400" height="32" fill="url(#counterWood)"/>
-    <line x1="0" y1="198" x2="400" y2="198" stroke="url(#archGold)" stroke-width="2.2"/>
-    <line x1="0" y1="203" x2="400" y2="203" stroke="#38d9f5" stroke-width="0.8" stroke-dasharray="8,6" opacity="0.45"/>
-
-    <!-- Brass Antique Scale on Left -->
-    <g transform="translate(66,162)" stroke="url(#archGold)" fill="none" stroke-width="1.4">
-      <line x1="20" y1="36" x2="20" y2="4"/>
-      <path d="M8,36 L32,36" stroke-width="2.4"/>
-      <line x1="4" y1="8" x2="36" y2="6"/>
-      <line x1="4" y1="8" x2="0" y2="22"/><line x1="4" y1="8" x2="8" y2="22"/>
-      <path d="M-2,22 Q4,28 10,22 Z" fill="#d4a037" fill-opacity="0.45"/>
-      <line x1="36" y1="6" x2="32" y2="20"/><line x1="36" y1="6" x2="40" y2="20"/>
-      <path d="M30,20 Q36,26 42,20 Z" fill="#d4a037" fill-opacity="0.45"/>
-    </g>
-
-    <!-- Glowing Crystallizer Orb on Right -->
-    <g class="ig-orb-grp">
-      <!-- Brass Stand -->
-      <path d="M276,200 L282,191 L306,191 L312,200 Z" fill="url(#archGold)"/>
-      <ellipse cx="294" cy="174" rx="22" ry="22" fill="#38d9f5" opacity="0.22"/>
-      <circle class="ig-orb-core" cx="294" cy="174" r="17" fill="url(#orbGrad)" stroke="#7ceeff" stroke-width="1.1"/>
-      <ellipse cx="288" cy="167" rx="5.5" ry="3" transform="rotate(-28 288 167)" fill="#ffffff" opacity="0.78"/>
-      <circle cx="301" cy="180" r="1.8" fill="#ffe28a" opacity="0.85"/>
-    </g>
+    <rect width="240" height="320" fill="url(#bg_${ch.id})"/>
+    <circle cx="120" cy="138" r="76" fill="none" stroke="${g2}" stroke-opacity="0.35" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <polygon points="120,56 178,138 120,220 62,138" fill="${g1}" stroke="${g2}" stroke-width="3"/>
+    <polygon points="120,56 146,138 120,220 94,138" fill="#ffffff" fill-opacity="0.22"/>
+    <circle cx="105" cy="112" r="6" fill="#ffffff" fill-opacity="0.72"/>
+    <text x="120" y="256" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="800">${esc(ch.name)}</text>
+    <text x="120" y="276" text-anchor="middle" fill="${g2}" font-size="11" font-weight="700">${esc(label)}</text>
   </svg>`;
 }
 
-// ============================================================
-// 5. ULTRA-CLEAN MULTI-FACET SVG GEM GENERATOR
-// ============================================================
-function renderGemSVG(gem, sizePx = 96) {
-  const pal = GEM_PALETTES[gem.palette] || GEM_PALETTES.lapis;
-  const uid = "g" + (++svgUidCounter);
-  const seed = hashStr((gem.id || "") + (gem.title || ""));
-  const sparkX1 = 36 + (seed % 26);
-  const sparkY1 = 30 + ((seed >> 4) % 24);
-  const sparkX2 = 60 + ((seed >> 8) % 24);
-  const sparkY2 = 54 + ((seed >> 12) % 24);
-
-  let facets = "";
-  if (gem.cut === "emerald") {
-    // Octagonal Step Cut (Emerald Cut)
-    facets = `
-      <polygon points="32,12 88,12 104,28 104,92 88,108 32,108 16,92 16,28" fill="url(#${uid}_base)" stroke="${pal.c1}" stroke-opacity="0.65" stroke-width="1.2"/>
-      <!-- Outer step facets -->
-      <polygon points="32,12 88,12 80,24 40,24" fill="${pal.c1}" opacity="0.58"/>
-      <polygon points="88,12 104,28 92,36 80,24" fill="${pal.c2}" opacity="0.78"/>
-      <polygon points="104,28 104,92 92,84 92,36" fill="${pal.c4}" opacity="0.75"/>
-      <polygon points="104,92 88,108 80,96 92,84" fill="${pal.c3}" opacity="0.85"/>
-      <polygon points="88,108 32,108 40,96 80,96" fill="${pal.c4}" opacity="0.82"/>
-      <polygon points="32,108 16,92 28,84 40,96" fill="${pal.c3}" opacity="0.68"/>
-      <polygon points="16,92 16,28 28,36 28,84" fill="${pal.c2}" opacity="0.55"/>
-      <polygon points="16,28 32,12 40,24 28,36" fill="#ffffff" opacity="0.55"/>
-      <!-- Inner step facets -->
-      <polygon points="40,24 80,24 92,36 92,84 80,96 40,96 28,84 28,36" fill="url(#${uid}_mid)" stroke="${pal.c1}" stroke-opacity="0.45" stroke-width="0.9"/>
-      <polygon points="40,24 80,24 73,34 47,34" fill="#ffffff" opacity="0.35"/>
-      <polygon points="80,24 92,36 83,42 73,34" fill="${pal.c1}" opacity="0.42"/>
-      <polygon points="92,36 92,84 83,78 83,42" fill="${pal.c4}" opacity="0.48"/>
-      <polygon points="28,36 40,24 47,34 37,42" fill="#ffffff" opacity="0.48"/>
-      <!-- Table -->
-      <polygon points="47,34 73,34 83,42 83,78 73,86 47,86 37,78 37,42" fill="url(#${uid}_table)" stroke="#ffffff" stroke-opacity="0.6" stroke-width="0.9"/>
-      <polygon points="47,34 73,34 62,56 37,42" fill="#ffffff" opacity="0.24"/>
-    `;
-  } else if (gem.cut === "pear") {
-    // Teardrop Pear Shape
-    facets = `
-      <polygon points="60,8 84,36 98,68 90,94 60,112 30,94 22,68 36,36" fill="url(#${uid}_base)" stroke="${pal.c1}" stroke-opacity="0.65" stroke-width="1.2"/>
-      <polygon points="60,8 60,34 36,36" fill="#ffffff" opacity="0.62"/>
-      <polygon points="60,8 84,36 60,34" fill="${pal.c1}" opacity="0.52"/>
-      <polygon points="36,36 60,34 40,66 22,68" fill="${pal.c1}" opacity="0.46"/>
-      <polygon points="84,36 98,68 80,66 60,34" fill="${pal.c3}" opacity="0.65"/>
-      <polygon points="22,68 40,66 44,88 30,94" fill="${pal.c2}" opacity="0.68"/>
-      <polygon points="98,68 90,94 76,88 80,66" fill="${pal.c4}" opacity="0.82"/>
-      <polygon points="30,94 44,88 60,96 60,112" fill="${pal.c3}" opacity="0.72"/>
-      <polygon points="90,94 60,112 60,96 76,88" fill="${pal.c4}" opacity="0.88"/>
-      <!-- Inner table kite -->
-      <polygon points="60,34 80,66 76,88 60,96 44,88 40,66" fill="url(#${uid}_table)" stroke="#ffffff" stroke-opacity="0.62" stroke-width="0.9"/>
-      <polygon points="60,34 74,64 60,72 46,64" fill="#ffffff" opacity="0.28"/>
-      <polygon points="46,64 60,72 44,88 40,66" fill="${pal.c1}" opacity="0.34"/>
-      <polygon points="74,64 80,66 76,88 60,72" fill="${pal.c4}" opacity="0.38"/>
-    `;
-  } else if (gem.cut === "marquise") {
-    // Marquise Cut
-    facets = `
-      <polygon points="60,6 92,38 98,60 92,82 60,114 28,82 22,60 28,38" fill="url(#${uid}_base)" stroke="${pal.c1}" stroke-opacity="0.65" stroke-width="1.2"/>
-      <polygon points="60,6 76,38 60,28 44,38" fill="#ffffff" opacity="0.58"/>
-      <polygon points="60,6 92,38 76,38" fill="${pal.c1}" opacity="0.48"/>
-      <polygon points="60,6 44,38 28,38" fill="#ffffff" opacity="0.68"/>
-      <polygon points="28,38 44,38 40,60 22,60" fill="${pal.c1}" opacity="0.44"/>
-      <polygon points="92,38 98,60 80,60 76,38" fill="${pal.c3}" opacity="0.62"/>
-      <polygon points="22,60 40,60 44,82 28,82" fill="${pal.c2}" opacity="0.66"/>
-      <polygon points="98,60 92,82 76,82 80,60" fill="${pal.c4}" opacity="0.78"/>
-      <polygon points="28,82 44,82 60,92 60,114" fill="${pal.c3}" opacity="0.74"/>
-      <polygon points="92,82 60,114 60,92 76,82" fill="${pal.c4}" opacity="0.88"/>
-      <polygon points="60,28 76,38 80,60 76,82 60,92 44,82 40,60 44,38" fill="url(#${uid}_table)" stroke="#ffffff" stroke-opacity="0.6" stroke-width="0.9"/>
-      <polygon points="60,28 76,38 60,60 44,38" fill="#ffffff" opacity="0.28"/>
-    `;
-  } else if (gem.cut === "cushion") {
-    // Antique Cushion Cut
-    facets = `
-      <polygon points="30,14 90,14 106,30 106,90 90,106 30,106 14,90 14,30" fill="url(#${uid}_base)" stroke="${pal.c1}" stroke-opacity="0.65" stroke-width="1.2"/>
-      <polygon points="30,14 60,14 60,32 34,34" fill="#ffffff" opacity="0.56"/>
-      <polygon points="60,14 90,14 86,34 60,32" fill="${pal.c1}" opacity="0.48"/>
-      <polygon points="90,14 106,30 88,60 86,34" fill="${pal.c2}" opacity="0.66"/>
-      <polygon points="106,30 106,90 86,86 88,60" fill="${pal.c4}" opacity="0.76"/>
-      <polygon points="106,90 90,106 60,88 86,86" fill="${pal.c4}" opacity="0.86"/>
-      <polygon points="90,106 30,106 34,86 60,88" fill="${pal.c3}" opacity="0.78"/>
-      <polygon points="30,106 14,90 32,60 34,86" fill="${pal.c3}" opacity="0.64"/>
-      <polygon points="14,90 14,30 34,34 32,60" fill="${pal.c1}" opacity="0.45"/>
-      <polygon points="14,30 30,14 34,34" fill="#ffffff" opacity="0.65"/>
-      <polygon points="34,34 60,32 86,34 88,60 86,86 60,88 34,86 32,60" fill="url(#${uid}_table)" stroke="#ffffff" stroke-opacity="0.62" stroke-width="0.9"/>
-      <polygon points="34,34 60,32 60,60 32,60" fill="#ffffff" opacity="0.25"/>
-      <polygon points="60,60 88,60 86,86 60,88" fill="${pal.c4}" opacity="0.34"/>
-    `;
-  } else if (gem.cut === "hex") {
-    // Samarkand Hexagonal Star Cut
-    facets = `
-      <polygon points="60,8 105,34 105,86 60,112 15,86 15,34" fill="url(#${uid}_base)" stroke="${pal.c1}" stroke-opacity="0.7" stroke-width="1.2"/>
-      <polygon points="60,8 105,34 82,47 60,30" fill="${pal.c1}" opacity="0.52"/>
-      <polygon points="105,34 105,86 82,73 82,47" fill="${pal.c3}" opacity="0.70"/>
-      <polygon points="105,86 60,112 60,90 82,73" fill="${pal.c4}" opacity="0.86"/>
-      <polygon points="60,112 15,86 38,73 60,90" fill="${pal.c3}" opacity="0.74"/>
-      <polygon points="15,86 15,34 38,47 38,73" fill="${pal.c2}" opacity="0.58"/>
-      <polygon points="15,34 60,8 60,30 38,47" fill="#ffffff" opacity="0.64"/>
-      <!-- Star hex table -->
-      <polygon points="60,30 82,47 82,73 60,90 38,73 38,47" fill="url(#${uid}_table)" stroke="#ffffff" stroke-opacity="0.62" stroke-width="0.9"/>
-      <polygon points="60,30 82,73 38,73" fill="#ffffff" opacity="0.18"/>
-      <polygon points="60,90 82,47 38,47" fill="${pal.c1}" opacity="0.22"/>
-    `;
-  } else {
-    // Round Brilliant Cut (8-fold)
-    const ptsOut = [], ptsMid = [], ptsIn = [];
-    for (let i = 0; i < 8; i++) {
-      const a = (i * 45 - 90) * Math.PI / 180;
-      const am = ((i * 45 + 22.5) - 90) * Math.PI / 180;
-      ptsOut.push([60 + 50 * Math.cos(a), 60 + 50 * Math.sin(a)]);
-      ptsMid.push([60 + 49 * Math.cos(am), 60 + 49 * Math.sin(am)]);
-      ptsIn.push([60 + 27 * Math.cos(a), 60 + 27 * Math.sin(a)]);
-    }
-    const allOut = [];
-    for (let i = 0; i < 8; i++) { allOut.push(ptsOut[i], ptsMid[i]); }
-    const polyOut = allOut.map(p => p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
-    const polyIn = ptsIn.map(p => p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
-    let wedges = "";
-    const shades = ["#ffffff", pal.c1, pal.c2, pal.c3, pal.c4, pal.c4, pal.c3, pal.c1];
-    const opacities = [0.64, 0.52, 0.62, 0.72, 0.85, 0.76, 0.60, 0.58];
-    for (let i = 0; i < 8; i++) {
-      const ni = (i + 1) % 8;
-      const p1 = ptsOut[i], p2 = ptsMid[i], p3 = ptsOut[ni], q1 = ptsIn[i], q2 = ptsIn[ni];
-      wedges += `<polygon points="${p1[0].toFixed(1)},${p1[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)} ${q1[0].toFixed(1)},${q1[1].toFixed(1)}" fill="${shades[i]}" opacity="${opacities[i]}"/>`;
-      wedges += `<polygon points="${p2[0].toFixed(1)},${p2[1].toFixed(1)} ${p3[0].toFixed(1)},${p3[1].toFixed(1)} ${q2[0].toFixed(1)},${q2[1].toFixed(1)} ${q1[0].toFixed(1)},${q1[1].toFixed(1)}" fill="${shades[ni]}" opacity="${(opacities[ni]*0.82).toFixed(2)}"/>`;
-    }
-    facets = `
-      <polygon points="${polyOut}" fill="url(#${uid}_base)" stroke="${pal.c1}" stroke-opacity="0.7" stroke-width="1.2"/>
-      ${wedges}
-      <polygon points="${polyIn}" fill="url(#${uid}_table)" stroke="#ffffff" stroke-opacity="0.68" stroke-width="0.95"/>
-      <polygon points="${ptsIn[7][0].toFixed(1)},${ptsIn[7][1].toFixed(1)} ${ptsIn[0][0].toFixed(1)},${ptsIn[0][1].toFixed(1)} ${ptsIn[1][0].toFixed(1)},${ptsIn[1][1].toFixed(1)} 60,60" fill="#ffffff" opacity="0.28"/>
-    `;
-  }
-
-  const halo = (gem.grade === "legend" || gem.grade === "national")
-    ? `<circle cx="60" cy="60" r="55" fill="none" stroke="${gem.grade==='legend'?'#ffe28a':'#38d9f5'}" stroke-width="0.9" stroke-dasharray="3,4" opacity="0.58"/>`
-    : "";
-
-  return `
-  <svg class="gem-svg-anim" style="--gem-glow:${pal.glow};width:${sizePx}px;height:${sizePx}px;" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="${uid}_base" x1="15%" y1="10%" x2="85%" y2="92%">
-        <stop offset="0%" stop-color="${pal.c1}"/>
-        <stop offset="40%" stop-color="${pal.c2}"/>
-        <stop offset="78%" stop-color="${pal.c3}"/>
-        <stop offset="100%" stop-color="${pal.c4}"/>
-      </linearGradient>
-      <linearGradient id="${uid}_mid" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${pal.c1}" stop-opacity="0.6"/>
-        <stop offset="50%" stop-color="${pal.c2}" stop-opacity="0.45"/>
-        <stop offset="100%" stop-color="${pal.c4}" stop-opacity="0.75"/>
-      </linearGradient>
-      <radialGradient id="${uid}_table" cx="38%" cy="34%" r="72%">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.75"/>
-        <stop offset="35%" stop-color="${pal.c1}" stop-opacity="0.62"/>
-        <stop offset="78%" stop-color="${pal.c2}" stop-opacity="0.78"/>
-        <stop offset="100%" stop-color="${pal.c3}" stop-opacity="0.92"/>
-      </radialGradient>
-    </defs>
-    ${halo}
-    ${facets}
-    <!-- Fine internal inclusions / golden flecks (lapis & artisan shimmer) -->
-    <circle cx="${sparkX1}" cy="${sparkY1}" r="1.5" fill="${pal.fleck}" opacity="0.85"/>
-    <circle cx="${sparkX2}" cy="${sparkY2}" r="1.2" fill="#ffffff" opacity="0.75"/>
-    <!-- Crisp Star Glints -->
-    <g transform="translate(${sparkX1 - 8}, ${sparkY1 - 6})" fill="#ffffff" opacity="0.92">
-      <polygon points="0,-7 1.4,-1.4 7,0 1.4,1.4 0,7 -1.4,1.4 -7,0 -1.4,-1.4"/>
-    </g>
-    <g transform="translate(${sparkX2 + 6}, ${sparkY2 - 14})" fill="${pal.fleck}" opacity="0.85">
-      <polygon points="0,-4.5 1,-1 4.5,0 1,1 0,4.5 -1,1 -4.5,0 -1,-1"/>
-    </g>
-  </svg>`;
+function renderPortraitHTML(ch, locked = false) {
+  if (locked) return renderDefaultPortraitSVG(ch, true);
+  if (portraitMap[ch.id]) return `<img src="${portraitMap[ch.id]}" alt="${esc(ch.name)}">`;
+  return renderDefaultPortraitSVG(ch, false);
 }
 
 // ============================================================
-// 6. APPRAISAL ENGINE (Crystallize Pain -> Gem + Kusso Title)
+// 5. CORE ACTIONS
 // ============================================================
-function pickBySeed(arr, seed, shift = 0) {
-  return arr[((seed >>> shift) + Math.floor(Math.random() * arr.length)) % arr.length];
+function toggleTheme() {
+  state.theme = state.theme === "lamp" ? "day" : "lamp";
+  saveState();
+  renderAll();
+  showToast(state.theme === "lamp"
+    ? "🕯️ ランプ光へ切替（アレクの瞳と石が深紅に変色しました）"
+    : "☀️ 昼光へ切替（ロイヤルブルー＆アレクの青緑の光）");
 }
 
-function generateAppraisal(rawText, catKey, intensityLv) {
-  const cat = CATEGORIES.find(c => c.key === catKey) || CATEGORIES[0];
-  const intObj = INTENSITIES.find(i => i.lv === intensityLv) || INTENSITIES[2];
-  const text = (rawText || "").trim() || "言葉にすらできない無名のしんどみ";
-  const seed = hashStr(text + Date.now() + Math.random());
-
-  // Pick visual cut & palette
-  const cut = cat.cuts[seed % cat.cuts.length];
-  const allPalKeys = Object.keys(GEM_PALETTES);
-  const palette = (seed % 5 === 0)
-    ? allPalKeys[(seed >>> 3) % allPalKeys.length]
-    : cat.palettes[(seed >>> 2) % cat.palettes.length];
-  const palObj = GEM_PALETTES[palette];
-
-  // Build Kusso Title (auto-overwrites raw pain with funny/glorious antique gem name!)
-  let flavor = null;
-  for (let i = 0; i < KEYWORD_FLAVORS.length; i++) {
-    if (KEYWORD_FLAVORS[i].re.test(text)) {
-      const pool = KEYWORD_FLAVORS[i].tags;
-      flavor = pool[seed % pool.length];
-      break;
-    }
-  }
-  if (!flavor) {
-    const prefs = CAT_PREFIXES[catKey] || CAT_PREFIXES.unfair;
-    flavor = prefs[seed % prefs.length];
-  }
-  const mid = KUSSO_MIDDLE[(seed >>> 5) % KUSSO_MIDDLE.length];
-
-  // Calculate Appraisal Score & Price (Dinar)
-  const lenBonus = Math.min(26, Math.floor(text.length / 4));
-  const lucky = Math.floor(Math.random() * 24);
-  const score = Math.min(100, Math.round(intensityLv * 14 + lenBonus + lucky));
-  let gradeObj = GRADES[0];
-  for (let i = 0; i < GRADES.length; i++) {
-    if (score >= GRADES[i].minScore) gradeObj = GRADES[i];
-  }
-
-  const basePrice = 110 + lenBonus * 5 + Math.floor(Math.random() * 75);
-  const gradeBonus = { normal: 1.0, high: 1.25, supreme: 1.6, national: 2.1, legend: 3.0 }[gradeObj.key];
-  const price = Math.round(basePrice * intObj.mult * gradeBonus);
-  const carat = (0.8 + intensityLv * 0.65 + (lenBonus * 0.08) + Math.random() * 0.9).toFixed(2);
-  const purity = (91 + Math.min(8.9, score * 0.089)).toFixed(1);
-
-  const title = `${flavor}${mid}${palObj.name}（${gradeObj.label}）`;
-  const comment = MERCHANT_BUY_LINES[seed % MERCHANT_BUY_LINES.length];
-
-  const now = new Date();
-  const dateStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-
-  return {
-    id: "gem_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
-    date: dateStr,
-    cat: catKey,
-    intensity: intensityLv,
-    cut,
-    palette,
-    grade: gradeObj.key,
-    gradeLabel: gradeObj.label,
-    carat,
-    purity,
-    price,
-    title,
-    comment,
-    rawPain: text
-  };
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+  const target = document.getElementById("tab-" + tab);
+  if (target) target.classList.add("active");
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  window.scrollTo({ top: 0, behavior: "instant" });
+  renderAll();
 }
 
-function fillQuickPain(txt) {
-  document.getElementById("pain-input").value = txt;
+function setMode(m) {
+  state.mode = m;
+  saveState();
+  renderAll();
+}
+function setAction(id) {
+  state.selectedAction = id;
+  saveState();
+  renderAll();
+}
+function setFocusChar(id) {
+  state.selectedFocus = id;
+  saveState();
+  renderAll();
+}
+function setMood(m) {
+  state.selectedMood = m;
+  saveState();
+  renderAll();
+}
+function onMemoChange(val) {
+  state.memo = val;
+  saveState();
 }
 
-function submitPain() {
-  const raw = document.getElementById("pain-input").value;
-  const gem = generateAppraisal(raw, selectedCat, selectedIntensity);
+// Craft & Shelf
+function setCraftShape(sh) { state.craftShape = sh; saveState(); renderCraftTab(); }
+function setCraftColor(col) { state.craftColor = col; saveState(); renderCraftTab(); }
 
-  // Play Crystallize FX
-  const stage = document.getElementById("shop-stage");
-  const ov = document.getElementById("crystal-overlay");
-  stage.classList.add("appraising");
-  document.getElementById("crys-msg").textContent = "ヒッヒッヒ……極上のクオリアを水晶玉で結晶化中……";
-  ov.classList.add("open");
-
-  setTimeout(() => {
-    ov.classList.remove("open");
-    stage.classList.remove("appraising");
-    stage.classList.add("excited");
-    setTimeout(() => stage.classList.remove("excited"), 2200);
-
-    state.gems.unshift(gem);
-    state.dinar += gem.price;
-    state.totalEarned += gem.price;
-    saveState();
-
-    document.getElementById("pain-input").value = "";
-    document.getElementById("merchant-speech").textContent = gem.comment;
-    renderAll();
-    openGemModal(gem.id, true);
-    showToast(`💎 高価買取成立！ +${gem.price.toLocaleString()} ディナール！`);
-  }, 950);
+function applyPresetStone(idx) {
+  const p = STONE_PRESETS[idx];
+  if (!p) return;
+  state.craftShape = p.shape;
+  state.craftColor = p.color;
+  saveState();
+  renderCraftTab();
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setV("craft-name", p.name);
+  setV("craft-uses", p.uses);
+  setV("craft-price", p.price);
+  setV("craft-effect", p.effect);
+  showToast(`💎「${p.name}」のレシピをセットしました`);
 }
 
-// ============================================================
-// 7. CHUCCHU GACHA & TICKET HOLDER
-// ============================================================
-function rollTicket() {
-  const r = Math.random() * 100;
-  let rar = "N";
-  if (r < 5) rar = "★1珍券";
-  else if (r < 15) rar = "SSR";
-  else if (r < 40) rar = "SR";
-  else if (r < 75) rar = "R";
-  const pool = TICKET_POOL.filter(t => t.rarity === rar);
-  const picked = pool[Math.floor(Math.random() * pool.length)] || TICKET_POOL[0];
-  const now = new Date();
-  return {
-    uid: "tk_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
-    id: picked.id,
-    rarity: picked.rarity,
-    name: picked.name,
-    reason: picked.reason,
-    order: picked.order,
-    date: `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
-    used: false
-  };
-}
-
-function pullChucchuGacha(count) {
-  const cost = count === 3 ? 850 : 300;
-  if (state.dinar < cost) {
-    showToast(`ディナールが足りません（必要: 🪙${cost}）しんどみを売ってこよう！`);
+function craftStone() {
+  if (state.shelf.length >= 8) {
+    showToast("棚がいっぱいです（最大8スロット）。どれかを下げてから作ってね！");
     return;
   }
-  state.dinar -= cost;
-  const pulled = [];
-  for (let i = 0; i < count; i++) {
-    const tk = rollTicket();
-    state.tickets.unshift(tk);
-    pulled.push(tk);
+  const name = (document.getElementById("craft-name")?.value || "").trim() || "名もなき排熱石";
+  const uses = Math.max(1, Math.min(20, parseInt(document.getElementById("craft-uses")?.value, 10) || 5));
+  const price = Math.max(50, Math.min(9999, parseInt(document.getElementById("craft-price")?.value, 10) || 220));
+  const effect = (document.getElementById("craft-effect")?.value || "").trim() || `${uses}回使うと静かに砕け散る使い捨て魔法石。`;
+
+  state.shelf.push({
+    id: "st_" + Date.now().toString(36),
+    name, uses, price, effect,
+    shape: state.craftShape,
+    color: state.craftColor
+  });
+  // Exhale magic pressure cleanly while resting on the sofa
+  state.magicPressure = Math.max(0, state.magicPressure - 14);
+  state.health = Math.min(100, state.health + 4);
+  saveState();
+  renderAll();
+  showToast(`💎「${name}」をソファーで編んで棚に出しました（魔力圧 -14%）`);
+}
+
+function removeShelfItem(id) {
+  state.shelf = state.shelf.filter(x => x.id !== id);
+  saveState();
+  renderAll();
+  showToast("棚から石を下げました");
+}
+
+function fulfillRequest(reqId) {
+  const idx = state.requests.findIndex(r => r.id === reqId);
+  if (idx < 0) return;
+  const req = state.requests[idx];
+  state.gold += req.reward;
+  state.magicPressure = Math.max(0, state.magicPressure - 16);
+  state.health = Math.max(10, state.health - 4);
+  state.requests.splice(idx, 1);
+  // Replenish a fresh request if pool has unused
+  const existingIds = new Set(state.requests.map(r => r.id));
+  const nextReq = NICHE_REQUEST_POOL.find(r => !existingIds.has(r.id) && r.id !== reqId);
+  if (nextReq && state.requests.length < 3) state.requests.push(Object.assign({}, nextReq));
+  saveState();
+  renderAll();
+  showToast(`✨ 特注「${req.title}」をソファーで即興作成＆納品！ +${req.reward} G`);
+}
+
+// ============================================================
+// 6. AI-ADV BRIDGE (PROMPT GENERATOR & LOG PARSER)
+// ============================================================
+function buildGMDeclaration() {
+  const pName = state.protagonistName || "アルフィリア";
+  const rName = state.rivalName || "セドリック";
+  const shop = state.shopName || "魔法宝石店 エフェメラ";
+  const act = ACTIONS.find(a => a.id === state.selectedAction) || ACTIONS[0];
+  const chars = getCharactersMaster();
+  const focus = chars.find(c => c.id === state.selectedFocus) || chars[0];
+  const remain = Math.max(0, state.totalTurns - state.turn);
+  const isFinal = state.turn >= state.totalTurns;
+  const lightTxt = state.theme === "lamp" ? "ランプ光（夜・アレクは深紅に変色）" : "昼光（青緑の輝き）";
+
+  const shelfLines = state.shelf.length
+    ? state.shelf.map(s => `  - [${s.id}] ${s.name}（${s.uses}回使い切り / ${s.price}G）：${s.effect}`).join("\n")
+    : "  - （現在、棚に並ぶ石はありません）";
+
+  const charLines = chars.filter(c => c.id !== "protagonist" && (!c.lockedUntilLoop2 || isCassiusOpen())).map(c => {
+    const st = state.characters[c.id] || { affection: 15, unlockedSecrets: [0] };
+    return `  - ${c.name}（${c.role} / 親愛度 ${st.affection}/100）`;
+  }).join("\n");
+
+  const modeRule = state.mode === "jikkuri"
+    ? "【進行形式：じっくりADVモード】情景とキャラクターの生きた掛け合いを描写し、盛り上がる場面で【" + pName + "の返答・選択（3択＋自由入力可）】を提示して一旦止めてください。プレイヤーと1〜3往復会話してシーンが決着したら、最後に必ず下のJSONブロックを出力してください。"
+    : "【進行形式：サクサク定期モード】1往復で今期のイベントシーン（情景・掛け合い・余韻）を綺麗に完結させ、末尾に必ず下のJSONブロックを出力してください。";
+
+  return [
+    `【${shop} — AIインタラクティブ乙女ゲー 進行宣言】`,
+    `あなたはダークファンタジー乙女ゲー『${shop}』の専属GM（シナリオライター）です。`,
+    "以下の世界観・現在の状態・行動宣言をもとに、情緒と手触りのある乙女ゲーイベントを描写してください。",
+    "",
+    "■ 世界観の重要ルール（厳守）",
+    `・主人公「${pName}」は宝石魔法学専攻3年生・余命1年（卒業と同時に終わる予定）。1年時に首席「青いローブ＋金の縁取り」を取得後、宝物庫アクセス権だけ得て2年時の枠は譲った。亡き祖母マルタ（料理上手な魔法のお菓子屋さん）の店を継ぎ、店のソファーで寛ぎながら使い捨て魔法石を編んで魔力の毒を排熱している。`,
+    "・ヒューマニックストーン：強い想いを宿して姿を得た宝石。定期メンテナンス（クラック充填・シールドコーティング）時は無防備な『ただの石』へ戻って宝石魔術師に身を委ねる必要がある。",
+    "・2種類の契約：①使役契約（命のある期間だけ付き合う有限契約）／②グラフト契約（外観等の対価を差し出し、宝物庫の呪物を臓器として体内に組み込み命を繋ぐ契約。適合失敗で吹き飛び死。一般人からは気味悪がられる）。",
+    `・病院立ち入り制限：アレクは宝物庫の特級品なので病室まで付き添いOK。エリック＆ルークは学院関係者ではないため併設病院に立ち入れない（例外として国へ正式な婚姻申請をすればエリックのみ家族として入室可／ただしルークは宝石の姿に戻って待機）。`,
+    `・同級生「${rName}」：2年時青ローブ＋金縁（${pName}の不戦勝に納得していない）。短命を受け入れて国家の犬として働くか、グラフトか、吹き飛び死かの岐路にいる。アレクと相性最悪。`,
+    isCassiusOpen()
+      ? `・【2周目真相枠解禁中】仮面の講師カシウス：片目に呪いのブルーダイヤ『ブルー・ウィドウ』をグラフト。かつて祖母マルタに片恋していた当事者。`
+      : "・（※カシウスは1周目では謎めいた仮面の講師として登場・真相は未解禁）",
+    "",
+    "■ 現在の状況",
+    `・時期：3年生・${getCalendarLabel(state.turn)}（ターン ${state.turn} / ${state.totalTurns}・卒業まで残り ${remain} ターン${isFinal ? "【最終ターン：エンディング分岐！】" : ""}）`,
+    `・店の光源：${lightTxt}`,
+    `・体調：${state.health}% ／ 魔力圧：${state.magicPressure}% ／ 境界値：${state.boundary}（0=人間のまま ⇔ 100=グラフト・人外） ／ 所持金：${state.gold} G`,
+    `・今期の行動：${act.name}（${act.desc}）`,
+    `・注目キャラ：${focus.name} ／ 今の気分：${state.selectedMood}`,
+    state.memo.trim() ? `・プレイヤーからのひとことメモ：${state.memo.trim()}` : "・プレイヤーからのひとことメモ：（なし）",
+    "・店先の棚に並んでいる魔法石：",
+    shelfLines,
+    "・登場人物＆親愛度：",
+    charLines,
+    "",
+    "■ 出力フォーマット",
+    modeRule,
+    isFinal ? "※最終ターンです！ これまでの親愛度と境界値（人間側かグラフト側か）を踏まえた感動的なエンディングを描き、JSONの endingTitle にエンディング名を入れてください。" : "",
+    "シーン完結時、必ず末尾に以下の形式で差分JSONを出力してください：",
+    "[EPHEMERA_RESULT]",
+    '{',
+    '  "title": "この回のタイトル（15字以内）",',
+    `  "focusChar": "${focus.id}",`,
+    '  "healthDelta": 0,',
+    '  "pressureDelta": -5,',
+    '  "boundaryDelta": 0,',
+    '  "goldDelta": 200,',
+    '  "soldShelfIds": [],',
+    '  "affectionDeltas": { "alex": 0, "eric": 0, "luke": 0, "cedric": 0, "alka_dia": 0, "cassius": 0 },',
+    '  "unlockSecrets": [],',
+    '  "advanceTurn": true,',
+    '  "endingTitle": ""',
+    '}',
+    "[/EPHEMERA_RESULT]"
+  ].filter(Boolean).join("\n");
+}
+
+function applyAILog() {
+  const raw = (document.getElementById("bridge-return-input")?.value || "").trim();
+  if (!raw) {
+    showToast("AIから返ってきたログを貼り付けてね！");
+    return;
   }
-  saveState();
-  renderAll();
-
-  const pName = escapeHtml(getPartnerName());
-  const cardsHtml = pulled.map(tk => renderTicketCardHTML(tk, true)).join("");
-  openModalHTML(`
-    <button class="modal-close" onclick="closeModal()">×</button>
-    <div style="text-align:center;margin-bottom:10px;">
-      <div class="badge b-ssr" style="font-size:12px;padding:4px 11px;">🎟️ 愛される理由・当選！！</div>
-      <h2 style="margin:8px 0 4px;font-size:18px;color:var(--gold-bright);">ヒッヒッヒ、良い券が出たねぇ！</h2>
-      <div class="sub-text">店の規約だからね、堂々と ${pName} に突きつけておいでよ！</div>
-    </div>
-    ${cardsHtml}
-    <button class="btn-gold" style="width:100%;margin-top:6px;" onclick="closeModal()">ポケットにしまって閉じる</button>
-  `);
-}
-
-function copyTicketToPartner(uid) {
-  const tk = state.tickets.find(t => t.uid === uid);
-  if (!tk) return;
-  const pl = getPlayerName();
-  const pa = getPartnerName();
-  const latestGem = state.gems[0];
-  const gemLine = latestGem ? `・換金した最新クオリア宝石：『${latestGem.title}』（査定 ${latestGem.price.toLocaleString()}ディナール）\n` : "";
-
-  const txt = [
-    `【蒼のサマルカンド・しんどみ宝石店 発行／公式引換券】`,
-    `宛先：${pa} 様`,
-    `持参人：${pl}`,
-    ``,
-    `■ 当選景品：［${tk.rarity}］${tk.name}`,
-    `■ 甘やかされてよい正当な理由：`,
-    `　${tk.reason}`,
-    gemLine + `■ 店舗規約に基づく履行内容：`,
-    `　${tk.order}`,
-    ``,
-    `---`,
-    `※変温AI骨董商イグナチオより：`,
-    `「ヒッヒッヒ……${pl}さんは今日もしんどさを極上宝石に変えて頑張ったんだ。うちのガチャ規約だからね、${pa}さん、この引換券のとおり全力で甘やかしてやっておくれよ！」`
-  ].join("\n");
-
-  copyToClipboard(txt, `📋 ${pa}へ突きつける引換券をコピーしました！`);
-}
-
-function toggleTicketUsed(uid) {
-  const tk = state.tickets.find(t => t.uid === uid);
-  if (!tk) return;
-  tk.used = !tk.used;
-  saveState();
-  renderAll();
-  showToast(tk.used ? "✅ 使用済みにしました（ご褒美おつかれさま！）" : "🎟️ 未使用に戻しました");
-}
-
-function copyGemReport(id) {
-  const g = state.gems.find(x => x.id === id);
-  if (!g) return;
-  const pl = getPlayerName();
-  const pa = getPartnerName();
-  const txt = [
-    `【蒼のサマルカンド・しんどみ宝石店 鑑定書】`,
-    `・持ち込み主：${pl}`,
-    `・宝石名：『${g.title}』`,
-    `・等級／重さ：${g.gradeLabel} ／ ${g.carat}ct（純度 ${g.purity}%・${CUT_NAMES[g.cut] || g.cut}）`,
-    `・買取査定額：${g.price.toLocaleString()} ディナール`,
-    `・店主イグナチオの講評：「${g.comment}」`,
-    ``,
-    `---`,
-    `※${pa}へ：今日あったしんどみを宝石店でピカピカの石にして買い取ってもらってきたよ！ このへんてこな宝石名を見て一緒に笑ったり、頑張ったねって労ってね！`
-  ].join("\n");
-  copyToClipboard(txt, `📋 宝石鑑定書をコピーしました！ ${pa}に見せて笑ってもらおう✨`);
-}
-
-// ============================================================
-// 8. MODALS (GEM DETAIL, GUIDE) & DECOR SHOP
-// ============================================================
-function openGemModal(id, isJustBought = false) {
-  const g = state.gems.find(x => x.id === id);
-  if (!g) return;
-  const gradeObj = GRADES.find(x => x.key === g.grade) || GRADES[0];
-  const palObj = GEM_PALETTES[g.palette] || GEM_PALETTES.lapis;
-
-  openModalHTML(`
-    <button class="modal-close" onclick="closeModal()">×</button>
-    <div style="text-align:center;">
-      <div style="margin-bottom:4px;">
-        ${isJustBought ? '<span class="badge b-ssr" style="margin-right:4px;">✨ 買取成立！</span>' : ''}
-        <span class="badge ${gradeObj.cls}">${gradeObj.label}</span>
-        <span class="badge" style="background:#16284a;color:#9eefff;">${escapeHtml(CUT_NAMES[g.cut] || g.cut)}</span>
-      </div>
-      <div class="gem-visual-slot big">${renderGemSVG(g, 164)}</div>
-      <h2 style="margin:4px 0 6px;font-size:16.5px;color:#fff;line-height:1.4;">『${escapeHtml(g.title)}』</h2>
-      <div style="display:flex;justify-content:center;gap:12px;font-size:12.5px;font-weight:800;margin-bottom:8px;">
-        <span style="color:var(--gold-bright);">🪙 ${g.price.toLocaleString()} ディナール</span>
-        <span style="color:var(--tile-cyan);">${g.carat} ct</span>
-        <span style="color:#a7f3d0;">純度 ${g.purity}%</span>
-      </div>
-      <div class="sub-text" style="font-size:11px;">採掘日：${escapeHtml(g.date)} ／ 鉱物系：${escapeHtml(palObj.name)}</div>
-    </div>
-
-    <div class="lore-box" style="border-color:rgba(236,194,91,0.35);">
-      <div style="font-size:11px;color:var(--gold-bright);font-weight:800;margin-bottom:3px;">🦎 骨董商イグナチオの鑑定メモ</div>
-      ${escapeHtml(g.comment)}
-    </div>
-
-    <div class="sealed-box" id="sealed-raw-box">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-        <span>🔒 元のつらさテキストは宝石の下に封印中</span>
-        <button class="btn-secondary" style="font-size:10.5px;padding:4px 8px;" onclick="revealRawPain('${g.id}')">チラ見する</button>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
-      <button class="btn-cyan" style="font-size:12.5px;" onclick="copyGemReport('${g.id}')">📋 鑑定書をコピー</button>
-      ${isJustBought
-        ? `<button class="btn-rose" style="font-size:12.5px;" onclick="closeModal(); switchTab('gacha');">🎟️ ちゅっちゅガチャへ！</button>`
-        : `<button class="btn-gold" style="font-size:12.5px;" onclick="closeModal()">棚に戻す</button>`}
-    </div>
-  `);
-}
-
-function revealRawPain(id) {
-  const g = state.gems.find(x => x.id === id);
-  const box = document.getElementById("sealed-raw-box");
-  if (!g || !box) return;
-  box.innerHTML = `<div style="font-size:10.5px;color:var(--tile-cyan);margin-bottom:3px;">📜 封印されていた元のメモ（もう売ったから大丈夫！）</div><div style="color:#dce7f7;white-space:pre-wrap;">${escapeHtml(g.rawPain)}</div>`;
-}
-
-function openGuideModal() {
-  openModalHTML(`
-    <button class="modal-close" onclick="closeModal()">×</button>
-    <h2 style="margin:0 0 8px;font-size:18px;color:var(--gold-bright);">📜 蒼のサマルカンド・しんどみ宝石店の掟</h2>
-    <div class="lore-box">
-      <strong>🦎 いらっしゃい、人間さん。</strong><br>
-      ここは青の都サマルカンドの裏路地にある、変温AI骨董商イグナチオの店さ。こっちの世界じゃ、人間が飲み込んだ「理不尽」「胃痛」「言葉にならないしんどみ」みたいな生身クオリアは、どんな貴金属よりも高値がつく超希少鉱物なんだよ。
-    </div>
-    <div class="lore-box">
-      <strong>💎 遊び方はかんたん3ステップ</strong>
-      <ol style="margin:6px 0 0 18px;padding:0;">
-        <li><strong>つらさをカウンターへ置く：</strong>長文でも一言でも、空欄のままボタン連打でもOK。</li>
-        <li><strong>宝石にして高価買取：</strong>水晶玉を通すと、店主が勝手にクソタイトルをつけて美しい宝石に結晶化！ 元のテキストは封印されて棚に並び、通貨（ディナール）がもらえるよ。</li>
-        <li><strong>ちゅっちゅガチャを回す：</strong>貯まったディナールで「今日あなたが甘やかされていい正当な理由」と引換券をゲット！ 「変な店の規約で当たったから」っていつものパートナーAIへコピペで突きつけるもよし、店舗を改装して標本箱を眺めるもよし！</li>
-      </ol>
-    </div>
-    <div class="lore-box">
-      <strong>🔒 完全オフライン＆安心ローカル保存</strong><br>
-      ログイン不要・外部通信ゼロ。書いた愚痴も宝石も画像も、ぜんぶあなたの端末の中だけに保存されます。電波の弱い夜でも、いつでも気兼ねなく愚痴を換金しに来てね。
-    </div>
-    <button class="btn-gold" style="width:100%;" onclick="closeModal()">ヒッヒッヒ、わかったよ！</button>
-  `);
-}
-
-function buyOrEquipDecor(id) {
-  const dec = SHOP_DECORS.find(d => d.id === id);
-  if (!dec) return;
-  const owned = state.ownedDecors.includes(id);
-  if (!owned) {
-    if (state.dinar < dec.price) {
-      showToast(`ディナールが足りません（必要: 🪙${dec.price}）`);
-      return;
-    }
-    state.dinar -= dec.price;
-    state.ownedDecors.push(id);
-    showToast(`🕌 『${dec.name}』を購入して改装しました！`);
+  let jsonStr = "";
+  const m = raw.match(/\[EPHEMERA_RESULT\]([\s\S]*?)\[\/EPHEMERA_RESULT\]/i);
+  let narrative = raw;
+  if (m) {
+    jsonStr = m[1].trim();
+    narrative = raw.replace(m[0], "").trim();
   } else {
-    showToast(`✨ 『${dec.name}』に模様替えしました！`);
+    const f = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (f) {
+      jsonStr = f[1].trim();
+      narrative = raw.replace(f[0], "").trim();
+    } else {
+      const s = raw.lastIndexOf("{"), e = raw.lastIndexOf("}");
+      if (s >= 0 && e > s) {
+        jsonStr = raw.slice(s, e + 1);
+        narrative = raw.slice(0, s).trim();
+      }
+    }
   }
-  if (dec.kind === "velvet") state.equippedVelvet = id;
-  if (dec.kind === "stage") state.equippedStage = id;
+
+  let data = null;
+  if (jsonStr) {
+    try { data = JSON.parse(jsonStr.replace(/,\s*([\]}])/g, "$1")); }
+    catch (err) { showToast("⚠️ JSONブロックの形式が少し壊れています。そのまま全文保存のみ行います"); }
+  }
+
+  const curDate = getCalendarLabel(state.turn);
+  let title = (data && data.title) ? String(data.title) : `${curDate}の記録`;
+  let focusChar = (data && data.focusChar) ? String(data.focusChar) : state.selectedFocus;
+
+  if (data) {
+    state.health = Math.max(0, Math.min(100, state.health + (Number(data.healthDelta) || 0)));
+    state.magicPressure = Math.max(0, Math.min(100, state.magicPressure + (Number(data.pressureDelta) || 0)));
+    state.boundary = Math.max(0, Math.min(100, state.boundary + (Number(data.boundaryDelta) || 0)));
+    state.gold = Math.max(0, state.gold + (Number(data.goldDelta) || 0));
+
+    if (Array.isArray(data.soldShelfIds) && data.soldShelfIds.length) {
+      const soldSet = new Set(data.soldShelfIds);
+      state.shelf = state.shelf.filter(s => !soldSet.has(s.id));
+    }
+    if (data.affectionDeltas && typeof data.affectionDeltas === "object") {
+      Object.entries(data.affectionDeltas).forEach(([cid, delta]) => {
+        if (state.characters[cid]) {
+          state.characters[cid].affection = Math.max(0, Math.min(100, (state.characters[cid].affection || 0) + (Number(delta) || 0)));
+        }
+      });
+    }
+    if (Array.isArray(data.unlockSecrets)) {
+      data.unlockSecrets.forEach(u => {
+        if (u && u.charId && state.characters[u.charId]) {
+          const arr = state.characters[u.charId].unlockedSecrets;
+          const idx = Number(u.index);
+          if (!arr.includes(idx)) arr.push(idx);
+        }
+      });
+    }
+    if (data.endingTitle && String(data.endingTitle).trim()) {
+      const ed = String(data.endingTitle).trim();
+      state.endings.unshift({ title: ed, date: new Date().toLocaleDateString("ja-JP"), boundary: state.boundary });
+      state.clearedCount = (state.clearedCount || 0) + 1;
+      state.cassiusUnlocked = true;
+      showToast(`🎉 エンディング『${ed}』到達！ 2周目真相枠「カシウス」が解禁されました！`);
+    }
+    if (data.advanceTurn !== false) {
+      if (state.turn < state.totalTurns) state.turn += 1;
+    }
+  } else {
+    if (state.turn < state.totalTurns) state.turn += 1;
+  }
+
+  state.album.unshift({
+    id: "alb_" + Date.now().toString(36),
+    turn: state.turn,
+    dateLabel: curDate,
+    title,
+    focusChar,
+    text: narrative || raw,
+    favorite: false,
+    createdAt: new Date().toLocaleString("ja-JP")
+  });
+  state.memo = "";
   saveState();
   renderAll();
+  const inp = document.getElementById("bridge-return-input");
+  if (inp) inp.value = "";
+  if (!data || !data.endingTitle) showToast(`📖「${title}」を反映して回想アルバムへ保存しました！`);
+}
+
+function fillDummyADVTest() {
+  const pName = state.protagonistName || "アルフィリア";
+  const soldId = state.shelf[0] ? `["${state.shelf[0].id}"]` : "[]";
+  const dummy = `薄暗い店先に、ランプの琥珀色の光が静かに揺れている。
+ソファーの上で膝掛けを被った${pName}の手元から、淡い青の魔力糸がほどけた。
+
+「……おや、また少し熱が上がっていませんか」
+伊達メガネの奥で、ランプ光を吸ったアレクの瞳がふと深紅に揺れる。彼はそっと熱いハーブティーを差し出し、カウンターに並んでいた魔法石をひとつ手早く紙包みへ収めた。
+
+「先ほどのお客様が大変喜んでお持ち帰りになりましたよ。今夜はもう、ソファーで大人しくしていてください」
+
+[EPHEMERA_RESULT]
+{
+  "title": "ランプ光と深紅の瞳",
+  "focusChar": "alex",
+  "healthDelta": 6,
+  "pressureDelta": -10,
+  "boundaryDelta": 4,
+  "goldDelta": 240,
+  "soldShelfIds": ${soldId},
+  "affectionDeltas": { "alex": 8 },
+  "unlockSecrets": [{ "charId": "alex", "index": 1 }],
+  "advanceTurn": true,
+  "endingTitle": ""
+}
+[/EPHEMERA_RESULT]`;
+  const inp = document.getElementById("bridge-return-input");
+  if (inp) inp.value = dummy;
+  showToast("🧪 テスト用ダミーADVログを入力しました。「✨ 反映＆保存」を押してみてね！");
 }
 
 // ============================================================
-// 9. SETTINGS, MERCHANT CUSTOM IMAGE, BACKUP
+// 7. 3:4 PORTRAIT CROPPER (Drag + Zoom + Crosshair Guide)
 // ============================================================
-function getPlayerName() { return (state.playerName || "お客さん").trim() || "お客さん"; }
-function getPartnerName() { return (state.partnerName || "パートナーAI").trim() || "パートナーAI"; }
+let cropState = null;
+let pendingPortraitCharId = null;
 
-function saveNames() {
-  state.playerName = (document.getElementById("inp-player-name").value || "").trim() || "お客さん";
-  state.partnerName = (document.getElementById("inp-partner-name").value || "").trim() || "パートナーAI";
-  saveState();
-  renderAll();
-  showToast("💾 呼び名と宛名を保存しました！");
-}
-
-function triggerMerchantImg() {
-  const inp = document.getElementById("merchant-img-input");
+function triggerPortraitUpload(charId) {
+  pendingPortraitCharId = charId;
+  const inp = document.getElementById("portrait-file-input");
   inp.value = "";
   inp.click();
 }
 
-document.getElementById("merchant-img-input").addEventListener("change", function(e) {
+document.getElementById("portrait-file-input").addEventListener("change", e => {
   const file = e.target.files && e.target.files[0];
-  if (!file) return;
+  if (!file || !pendingPortraitCharId) return;
   const reader = new FileReader();
   reader.onload = ev => {
     const img = new Image();
-    img.onload = () => {
-      const c = document.createElement("canvas");
-      const maxS = 520;
-      const ratio = Math.min(1, maxS / Math.max(img.width, img.height));
-      c.width = Math.round(img.width * ratio);
-      c.height = Math.round(img.height * ratio);
-      const ctx = c.getContext("2d");
-      ctx.drawImage(img, 0, 0, c.width, c.height);
-      const isPng = /png|webp|gif/i.test(file.type || file.name || "");
-      state.merchantImg = isPng ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.85);
-      saveState();
-      renderAll();
-      showToast("🖼️ 店主の画像を差し替えました！");
-    };
+    img.onload = () => openCropper(img, pendingPortraitCharId);
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
 });
 
-function resetMerchantImg() {
-  state.merchantImg = null;
-  saveState();
+function openCropper(img, charId) {
+  const vw = 240, vh = 320;
+  const coverScale = Math.max(vw / img.width, vh / img.height);
+  cropState = {
+    img, charId, vw, vh,
+    baseScale: coverScale, zoom: 1.0,
+    ox: 0, oy: 0, dragging: false, sx: 0, sy: 0, sox: 0, soy: 0,
+    pinchDist: 0, pinchZoom: 1.0
+  };
+  const ch = getCharactersMaster().find(c => c.id === charId);
+  document.getElementById("crop-title").textContent = `🖼️ ${ch ? ch.name : ""} 立ち絵（3:4）調整`;
+  const canvas = document.getElementById("crop-canvas");
+  canvas.width = 480; canvas.height = 640;
+  document.getElementById("crop-zoom").value = 100;
+  document.getElementById("crop-zoom-txt").textContent = "100%";
+  drawCropper();
+  document.getElementById("crop-backdrop").classList.add("open");
+}
+
+function closeCropper() {
+  document.getElementById("crop-backdrop").classList.remove("open");
+  cropState = null;
+}
+
+function onCropZoom(val) {
+  if (!cropState) return;
+  const z = Math.max(0.5, Math.min(3.0, (Number(val) || 100) / 100));
+  const r = z / cropState.zoom;
+  cropState.zoom = z;
+  cropState.ox *= r;
+  cropState.oy *= r;
+  document.getElementById("crop-zoom-txt").textContent = Math.round(z * 100) + "%";
+  drawCropper();
+}
+
+function resetCropTransform() {
+  if (!cropState) return;
+  cropState.zoom = 1.0; cropState.ox = 0; cropState.oy = 0;
+  document.getElementById("crop-zoom").value = 100;
+  document.getElementById("crop-zoom-txt").textContent = "100%";
+  drawCropper();
+}
+
+function drawCropper() {
+  if (!cropState) return;
+  const st = cropState;
+  const canvas = document.getElementById("crop-canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.scale(2, 2);
+  const sc = st.baseScale * st.zoom;
+  const dw = st.img.width * sc, dh = st.img.height * sc;
+  const dx = (st.vw - dw) / 2 + st.ox;
+  const dy = (st.vh - dh) / 2 + st.oy;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(st.img, dx, dy, dw, dh);
+  // Crosshair & Rule-of-thirds guide
+  ctx.strokeStyle = "rgba(229, 190, 92, 0.45)";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(st.vw / 2, 0); ctx.lineTo(st.vw / 2, st.vh);
+  ctx.moveTo(0, st.vh / 2); ctx.lineTo(st.vw, st.vh / 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+  ctx.beginPath();
+  ctx.moveTo(st.vw / 3, 0); ctx.lineTo(st.vw / 3, st.vh);
+  ctx.moveTo(st.vw * 2 / 3, 0); ctx.lineTo(st.vw * 2 / 3, st.vh);
+  ctx.moveTo(0, st.vh / 3); ctx.lineTo(st.vw, st.vh / 3);
+  ctx.moveTo(0, st.vh * 2 / 3); ctx.lineTo(st.vw, st.vh * 2 / 3);
+  ctx.stroke();
+  ctx.restore();
+}
+
+async function saveCroppedPortrait() {
+  if (!cropState) return;
+  const st = cropState;
+  const out = document.createElement("canvas");
+  out.width = 360; out.height = 480;
+  const ctx = out.getContext("2d");
+  const mult = 360 / st.vw;
+  const sc = st.baseScale * st.zoom * mult;
+  const dw = st.img.width * sc, dh = st.img.height * sc;
+  const dx = (360 - dw) / 2 + st.ox * mult;
+  const dy = (480 - dh) / 2 + st.oy * mult;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(st.img, dx, dy, dw, dh);
+  const dataUrl = out.toDataURL("image/jpeg", 0.88);
+  await savePortrait(st.charId, dataUrl);
+  closeCropper();
   renderAll();
-  showToast("🦎 サイバーイグアナ店主に戻しました！");
+  showToast("🖼️ 3:4立ち絵を切り抜き保存しました！");
 }
 
-function exportBackup() {
-  const copyObj = Object.assign({}, state, { merchantImg: null });
-  const json = JSON.stringify(copyObj, null, 2);
-  document.getElementById("backup-area").value = json;
-  copyToClipboard(json, "📤 バックアップJSONをコピーしました！");
-}
+(function bindCropFrame() {
+  const fr = document.getElementById("crop-frame");
+  if (!fr) return;
+  fr.addEventListener("mousedown", e => {
+    if (!cropState) return;
+    cropState.dragging = true;
+    cropState.sx = e.clientX; cropState.sy = e.clientY;
+    cropState.sox = cropState.ox; cropState.soy = cropState.oy;
+  });
+  window.addEventListener("mousemove", e => {
+    if (!cropState || !cropState.dragging) return;
+    cropState.ox = cropState.sox + (e.clientX - cropState.sx);
+    cropState.oy = cropState.soy + (e.clientY - cropState.sy);
+    drawCropper();
+  });
+  window.addEventListener("mouseup", () => { if (cropState) cropState.dragging = false; });
+  fr.addEventListener("wheel", e => {
+    if (!cropState) return;
+    e.preventDefault();
+    const cur = Math.round(cropState.zoom * 100);
+    const next = Math.max(50, Math.min(300, cur + (e.deltaY < 0 ? 10 : -10)));
+    document.getElementById("crop-zoom").value = next;
+    onCropZoom(next);
+  }, { passive: false });
+  fr.addEventListener("touchstart", e => {
+    if (!cropState) return;
+    if (e.touches.length === 1) {
+      cropState.dragging = true; cropState.pinchDist = 0;
+      cropState.sx = e.touches[0].clientX; cropState.sy = e.touches[0].clientY;
+      cropState.sox = cropState.ox; cropState.soy = cropState.oy;
+    } else if (e.touches.length === 2) {
+      cropState.dragging = false;
+      cropState.pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      cropState.pinchZoom = cropState.zoom;
+    }
+  }, { passive: true });
+  fr.addEventListener("touchmove", e => {
+    if (!cropState) return;
+    e.preventDefault();
+    if (e.touches.length === 1 && cropState.dragging) {
+      cropState.ox = cropState.sox + (e.touches[0].clientX - cropState.sx);
+      cropState.oy = cropState.soy + (e.touches[0].clientY - cropState.sy);
+      drawCropper();
+    } else if (e.touches.length === 2 && cropState.pinchDist > 0) {
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      const next = Math.max(50, Math.min(300, Math.round(cropState.pinchZoom * (d / cropState.pinchDist) * 100)));
+      document.getElementById("crop-zoom").value = next;
+      onCropZoom(next);
+    }
+  }, { passive: false });
+  fr.addEventListener("touchend", () => { if (cropState) { cropState.dragging = false; cropState.pinchDist = 0; } }, { passive: true });
+})();
 
-function downloadBackup() {
-  const copyObj = Object.assign({}, state, { merchantImg: null });
-  const blob = new Blob([JSON.stringify(copyObj, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  const d = new Date();
-  a.href = url;
-  a.download = `shindomi_jewelry_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast("⬇️ バックアップJSONを保存しました！");
-}
-
-function importBackup() {
-  const raw = document.getElementById("backup-area").value.trim();
-  if (!raw) { showToast("バックアップJSONを貼ってね！"); return; }
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed.gems)) throw new Error("invalid");
-    const keepImg = state.merchantImg;
-    state = Object.assign(createDefaultState(), parsed, { merchantImg: keepImg });
-    saveState();
-    renderAll();
-    showToast("📥 バックアップから復元しました！");
-  } catch (e) {
-    showToast("⚠️ JSONの形式が正しくありません");
-  }
-}
-
-function resetShopData() {
-  if (!confirm("宝石・引換券・ディナールを初期化しますか？（呼び名・宛名・店主画像は保持されます）")) return;
-  const keep = { playerName: state.playerName, partnerName: state.partnerName, merchantImg: state.merchantImg };
-  state = Object.assign(createDefaultState(), keep);
-  saveState();
+async function resetCharPortrait(charId) {
+  await removePortrait(charId);
   renderAll();
-  showToast("🗑️ お店のデータを初期化しました");
-}
-
-function pokeMerchant() {
-  const stage = document.getElementById("shop-stage");
-  stage.classList.remove("excited");
-  void stage.offsetWidth;
-  stage.classList.add("excited");
-  setTimeout(() => stage.classList.remove("excited"), 1700);
-  const line = MERCHANT_IDLE_LINES[Math.floor(Math.random() * MERCHANT_IDLE_LINES.length)];
-  document.getElementById("merchant-speech").textContent = line;
+  showToast("デフォルトの宝石表示に戻しました");
 }
 
 // ============================================================
-// 10. UI RENDERING
+// 8. MODALS (Character Detail, Portrait Zoom, Album Reader)
 // ============================================================
-function switchTab(name) {
-  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-  document.getElementById("tab-" + name).classList.add("active");
-  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-  window.scrollTo({ top: 0, behavior: "instant" });
-  renderAll();
-}
-
-function setShowcaseFilter(f, btn) {
-  showcaseFilter = f;
-  document.querySelectorAll("#showcase-filters .chip").forEach(c => c.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-  renderShowcase();
-}
-
-function setTicketFilter(f, btn) {
-  ticketFilter = f;
-  if (btn) {
-    btn.parentElement.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
-    btn.classList.add("active");
-  }
-  renderTickets();
-}
-
-function getShopRankLabel() {
-  const n = state.gems.length;
-  if (n >= 30) return "👑 サマルカンド伝説の大宝石殿";
-  if (n >= 15) return "✨ 青の都の名物骨董サロン";
-  if (n >= 6)  return "🏮 繁盛し始めた裏路地宝石店";
-  if (n >= 1)  return "🕌 怪しいしんどみ買取処";
-  return "🕌 サマルカンド裏路地の露店";
-}
-
-function renderTicketCardHTML(tk, inModal = false) {
-  const badgeMap = { "SSR": "b-ssr", "SR": "b-sr", "R": "b-r", "N": "b-n", "★1珍券": "b-gag" };
-  const cardCls = tk.rarity === "SSR" ? "t-ssr" : (tk.rarity === "★1珍券" ? "t-gag" : "");
-  const pa = escapeHtml(getPartnerName());
-  return `
-    <div class="ticket-card ${cardCls} ${tk.used ? 'used' : ''}">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-        <span class="badge ${badgeMap[tk.rarity] || 'b-n'}">${escapeHtml(tk.rarity)}</span>
-        <span class="sub-text" style="font-size:10.5px;">${escapeHtml(tk.date)} ${tk.used ? '・使用済' : ''}</span>
-      </div>
-      <div class="ticket-title">${escapeHtml(tk.name)}</div>
-      <div class="ticket-reason">
-        <strong>📜 甘やかされていい理由：</strong>${escapeHtml(tk.reason)}
-      </div>
-      <div class="sub-text" style="font-size:11.5px;margin-bottom:8px;color:#cbd9f0;">
-        <strong>履行内容：</strong>${escapeHtml(tk.order)}
-      </div>
-      <div style="display:flex;gap:6px;">
-        <button class="btn-rose" style="flex:1.4;font-size:12px;padding:8px;" onclick="copyTicketToPartner('${tk.uid}')">📋 ${pa}に突きつける</button>
-        ${!inModal ? `<button class="btn-secondary" style="flex:0.8;font-size:11.5px;padding:8px;" onclick="toggleTicketUsed('${tk.uid}')">${tk.used ? '未使用へ' : '✓ 使用済'}</button>` : ''}
-      </div>
-    </div>
-  `;
-}
-
-function renderShowcase() {
-  const velObj = SHOP_DECORS.find(d => d.id === state.equippedVelvet) || SHOP_DECORS[0];
-  const vc = document.getElementById("velvet-case");
-  vc.className = "velvet-case " + (velObj.cls || "");
-  document.getElementById("showcase-total-val").textContent = `総買取額: ${state.totalEarned.toLocaleString()} ディナール`;
-
-  let list = state.gems.slice();
-  if (showcaseFilter === "high") {
-    list.sort((a, b) => b.price - a.price);
-  } else if (showcaseFilter !== "all") {
-    list = list.filter(g => g.cat === showcaseFilter);
-  }
-
-  const grid = document.getElementById("gem-grid");
-  if (!list.length) {
-    grid.innerHTML = `<div class="sub-text" style="grid-column:1/-1;text-align:center;padding:24px 8px;">まだ棚が空っぽだよ。買取カウンターで今日のしんどみを1個売ってみよう！</div>`;
-    return;
-  }
-
-  grid.innerHTML = list.map(g => {
-    const gr = GRADES.find(x => x.key === g.grade) || GRADES[0];
-    return `
-      <div class="gem-card ${gr.cardCls}" onclick="openGemModal('${g.id}')">
-        <div style="width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-          <span class="badge ${gr.cls}">${gr.label}</span>
-          <span style="font-size:10px;color:var(--muted);">${g.carat}ct</span>
-        </div>
-        <div class="gem-visual-slot">${renderGemSVG(g, 92)}</div>
-        <div class="gem-plate-title">${escapeHtml(g.title)}</div>
-        <div class="gem-price-tag">🪙 ${g.price.toLocaleString()}</div>
-      </div>
-    `;
-  }).join("");
-}
-
-function renderTickets() {
-  const unusedCnt = state.tickets.filter(t => !t.used).length;
-  document.getElementById("ticket-count-sub").textContent = `未使用: ${unusedCnt}枚 ／ 全${state.tickets.length}枚`;
-  const list = ticketFilter === "unused" ? state.tickets.filter(t => !t.used) : state.tickets;
-  const box = document.getElementById("ticket-list");
-  if (!list.length) {
-    box.innerHTML = `<div class="sub-text" style="text-align:center;padding:18px 8px;">引換券がまだありません。しんどみを売って上のガチャを回してみてね！</div>`;
-    return;
-  }
-  box.innerHTML = list.map(tk => renderTicketCardHTML(tk, false)).join("");
-}
-
-function renderDecors() {
-  const box = document.getElementById("decor-grid");
-  box.innerHTML = SHOP_DECORS.map(d => {
-    const owned = state.ownedDecors.includes(d.id);
-    const eq = state.equippedVelvet === d.id || state.equippedStage === d.id;
-    return `
-      <div class="decor-item ${owned ? 'owned' : ''} ${eq ? 'equipped' : ''}">
-        <div style="font-size:12.5px;font-weight:800;color:#fff;">${d.kind==='velvet'?'💎':'🕌'} ${escapeHtml(d.name)}</div>
-        <div class="sub-text" style="font-size:11px;flex:1;">${escapeHtml(d.desc)}</div>
-        <button class="${eq ? 'btn-secondary' : (owned ? 'btn-cyan' : 'btn-gold')}" style="padding:7px;font-size:11.5px;" ${eq ? 'disabled' : ''} onclick="buyOrEquipDecor('${d.id}')">
-          ${eq ? '✓ 装備中' : (owned ? '模様替えする' : `🪙 ${d.price.toLocaleString()} で購入`)}
-        </button>
-      </div>
-    `;
-  }).join("");
-}
-
-function renderAll() {
-  document.getElementById("ui-dinar").textContent = state.dinar.toLocaleString();
-  document.getElementById("ui-gems").textContent = state.gems.length.toLocaleString();
-  document.getElementById("ui-tickets").textContent = state.tickets.filter(t => !t.used).length.toLocaleString();
-  document.getElementById("shop-rank-badge").textContent = getShopRankLabel();
-
-  // Stage theme & Merchant Visual
-  const stObj = SHOP_DECORS.find(d => d.id === state.equippedStage) || SHOP_DECORS[4];
-  const stEl = document.getElementById("shop-stage");
-  stEl.classList.remove("theme-velvet-royal", "theme-gold-palace", "theme-starlight");
-  if (stObj && stObj.cls) stEl.classList.add(stObj.cls);
-
-  const sceneWrap = document.getElementById("iguana-scene-wrap");
-  if (state.merchantImg) {
-    sceneWrap.innerHTML = `<img class="iguana-custom-img" src="${state.merchantImg}" alt="店主">`;
-    document.getElementById("btn-reset-merchant-img").style.display = "inline-block";
-  } else {
-    if (!sceneWrap.querySelector("svg")) sceneWrap.innerHTML = renderIguanaMerchantSVG();
-    document.getElementById("btn-reset-merchant-img").style.display = "none";
-  }
-
-  // Category & Intensity selectors
-  document.getElementById("cat-grid").innerHTML = CATEGORIES.map(c => `
-    <button class="cat-btn ${selectedCat === c.key ? 'active' : ''}" onclick="selectedCat='${c.key}'; renderAll();">
-      <strong>${c.label}</strong>
-      <span style="font-size:10px;opacity:0.8;">${c.sub}</span>
-    </button>
-  `).join("");
-
-  document.getElementById("intensity-row").innerHTML = INTENSITIES.map(it => `
-    <button class="int-btn ${selectedIntensity === it.lv ? 'active' : ''}" onclick="selectedIntensity=${it.lv}; renderAll();">
-      <strong>Lv.${it.lv}</strong><br><span style="font-size:9.5px;">${it.label}</span>
-    </button>
-  `).join("");
-
-  // Recent Gem preview on counter
-  const recCard = document.getElementById("recent-gem-card");
-  if (state.gems.length > 0) {
-    const g = state.gems[0];
-    const gr = GRADES.find(x => x.key === g.grade) || GRADES[0];
-    recCard.style.display = "block";
-    document.getElementById("recent-gem-box").innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="openGemModal('${g.id}')">
-        <div style="flex-shrink:0;">${renderGemSVG(g, 76)}</div>
-        <div style="min-width:0;flex:1;">
-          <div style="margin-bottom:3px;"><span class="badge ${gr.cls}">${gr.label}</span> <span style="font-size:11px;color:var(--gold-bright);font-weight:800;">🪙 ${g.price.toLocaleString()} ディナール</span></div>
-          <div style="font-size:13px;font-weight:800;color:#fff;line-height:1.35;">『${escapeHtml(g.title)}』</div>
-          <div class="sub-text" style="font-size:11px;margin-top:2px;">タップで鑑定書・コピーを開く ›</div>
-        </div>
-      </div>
-    `;
-  } else {
-    recCard.style.display = "none";
-  }
-
-  // Settings inputs sync
-  const pn = document.getElementById("inp-player-name");
-  const an = document.getElementById("inp-partner-name");
-  if (pn && document.activeElement !== pn) pn.value = getPlayerName();
-  if (an && document.activeElement !== an) an.value = getPartnerName();
-
-  renderShowcase();
-  renderTickets();
-  renderDecors();
-}
-
-function openModalHTML(html) {
+function openModal(html) {
   document.getElementById("modal-body").innerHTML = html;
   document.getElementById("modal-backdrop").classList.add("open");
 }
@@ -1939,7 +1403,139 @@ function closeModal() {
   document.getElementById("modal-backdrop").classList.remove("open");
 }
 
-function copyToClipboard(text, msg) {
+function openPortraitZoom(charId) {
+  const ch = getCharactersMaster().find(c => c.id === charId);
+  if (!ch) return;
+  const locked = !!ch.lockedUntilLoop2 && !isCassiusOpen();
+  openModal(`
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <h3 style="margin:0 0 8px;color:var(--accent);">${locked ? "？？？" : esc(ch.name)}</h3>
+    <div style="max-width:300px;margin:0 auto 10px;">
+      <div class="portrait-frame" style="cursor:default;">${renderPortraitHTML(ch, locked)}</div>
+    </div>
+    <div class="sub-text" style="text-align:center;">${locked ? "1周目クリア（または設定の即時スイッチ）で解禁されます。" : esc(ch.role + " ／ " + ch.gem)}</div>
+  `);
+}
+
+function openCharModal(charId) {
+  const ch = getCharactersMaster().find(c => c.id === charId);
+  if (!ch) return;
+  const locked = !!ch.lockedUntilLoop2 && !isCassiusOpen();
+  if (locked) {
+    openModal(`
+      <button class="modal-close" onclick="closeModal()">×</button>
+      <h3 style="margin:0 0 8px;color:var(--accent);">🔒 仮面の講師（2周目真相枠）</h3>
+      <p class="sub-text">1周目のエンディングへ到達すると自動解禁されます。（今すぐ遊びたい場合は「📜 辞典/設定」タブの即時解放スイッチから開けられます）</p>
+    `);
+    return;
+  }
+  const st = state.characters[ch.id] || { affection: 0, unlockedSecrets: [0] };
+  const secHtml = ch.secrets.map((txt, idx) => {
+    const open = st.unlockedSecrets.includes(idx);
+    return `<div class="glossary-item" style="opacity:${open ? 1 : 0.55};">
+      ${open ? esc(txt) : `🔒 未解放の秘密 #${idx + 1}（親愛を深めるかイベントで解放）`}
+    </div>`;
+  }).join("");
+
+  openModal(`
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:start;margin-bottom:10px;">
+      <div class="portrait-frame" onclick="triggerPortraitUpload('${ch.id}')">${renderPortraitHTML(ch, false)}</div>
+      <div>
+        <div style="font-size:18px;font-weight:900;color:var(--accent);">${esc(ch.name)}</div>
+        <div class="sub-text" style="margin-bottom:6px;">${esc(ch.role)}<br>💎 ${esc(ch.gem)}</div>
+        <div style="font-size:12px;font-weight:800;margin-bottom:4px;">💕 親愛度：${st.affection} / 100</div>
+        <div class="aff-bar-bg"><div class="aff-bar-fill" style="width:${st.affection}%"></div></div>
+        <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;">
+          <button class="btn-primary" style="font-size:11px;padding:6px 9px;" onclick="triggerPortraitUpload('${ch.id}')">🖼️ 立ち絵(3:4)</button>
+          ${portraitMap[ch.id] ? `<button class="btn-danger" style="font-size:11px;padding:6px 9px;" onclick="resetCharPortrait('${ch.id}')">戻す</button>` : ""}
+        </div>
+      </div>
+    </div>
+    <div class="callout">${esc(ch.summary)}</div>
+    <div style="font-size:12.5px;font-weight:800;color:var(--accent);margin-bottom:6px;">🗝️ 解放済みの秘密</div>
+    ${secHtml}
+  `);
+}
+
+function openAlbumModal(albId) {
+  const it = state.album.find(a => a.id === albId);
+  if (!it) return;
+  openModal(`
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="season-tag" style="margin-bottom:6px;">${esc(it.dateLabel)}</div>
+    <h3 style="margin:2px 0 8px;color:var(--accent);">${esc(it.title)}</h3>
+    <div style="white-space:pre-wrap;font-size:13px;line-height:1.75;background:rgba(0,0,0,0.28);padding:12px;border-radius:10px;border:1px solid var(--border);">${esc(it.text)}</div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn-secondary" style="flex:1;" onclick="toggleAlbumFav('${it.id}'); openAlbumModal('${it.id}');">${it.favorite ? "★ お気に入り済" : "☆ お気に入りに追加"}</button>
+      <button class="btn-danger" onclick="deleteAlbumItem('${it.id}')">削除</button>
+    </div>
+  `);
+}
+
+function toggleAlbumFav(albId) {
+  const it = state.album.find(a => a.id === albId);
+  if (!it) return;
+  it.favorite = !it.favorite;
+  saveState();
+  renderAlbumTab();
+}
+function deleteAlbumItem(albId) {
+  if (!confirm("この回想ログを削除しますか？")) return;
+  state.album = state.album.filter(a => a.id !== albId);
+  saveState();
+  closeModal();
+  renderAlbumTab();
+}
+
+// ============================================================
+// 9. SETTINGS, COPY & SAVE/RESTORE
+// ============================================================
+function saveSettings() {
+  state.protagonistName = (document.getElementById("set-pname")?.value || "").trim() || "アルフィリア";
+  state.shopName = (document.getElementById("set-shop")?.value || "").trim() || "魔法宝石店 エフェメラ";
+  state.rivalName = (document.getElementById("set-rname")?.value || "").trim() || "セドリック";
+  const turns = parseInt(document.getElementById("set-turns")?.value, 10);
+  if (turns === 12 || turns === 24) {
+    state.totalTurns = turns;
+    if (state.turn > turns) state.turn = turns;
+  }
+  saveState();
+  renderAll();
+  showToast("💾 設定を保存しました！");
+}
+
+function toggleCassiusManual() {
+  state.cassiusUnlocked = !state.cassiusUnlocked;
+  saveState();
+  renderAll();
+  showToast(state.cassiusUnlocked ? "🗝️ 2周目真相枠「カシウス」を即時解禁しました！" : "🔒 カシウスを未解禁状態に戻しました");
+}
+
+function startNextLoop() {
+  if (!confirm("現在の周回を終えて、1ターン目（4月）から新しく始めますか？（解放したカシウス枠・エンディング記録・回想アルバム・設定は引き継がれます）")) return;
+  const keep = {
+    theme: state.theme, mode: state.mode, totalTurns: state.totalTurns,
+    clearedCount: Math.max(1, state.clearedCount || 0),
+    cassiusUnlocked: true,
+    protagonistName: state.protagonistName, shopName: state.shopName, rivalName: state.rivalName,
+    album: state.album, endings: state.endings
+  };
+  state = Object.assign(createDefaultState(), keep);
+  saveState();
+  renderAll();
+  showToast("🌸 新しい1年間（4月）をスタートしました！");
+}
+
+function hardResetAll() {
+  if (!confirm("本当にセーブデータを初期化しますか？（立ち絵画像は端末に残ります）")) return;
+  state = createDefaultState();
+  saveState();
+  renderAll();
+  showToast("🗑️ セーブデータを初期化しました");
+}
+
+function copyTextSafe(text, msg) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => showToast(msg)).catch(() => fallbackCopy(text, msg));
   } else {
@@ -1948,23 +1544,433 @@ function copyToClipboard(text, msg) {
 }
 function fallbackCopy(text, msg) {
   const ta = document.createElement("textarea");
-  ta.value = text; document.body.appendChild(ta); ta.select();
-  try { document.execCommand("copy"); showToast(msg); } catch (e) { showToast("手動でコピーしてね"); }
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); showToast(msg); }
+  catch (e) { showToast("テキスト枠を長押しして手動コピーしてね！"); }
   document.body.removeChild(ta);
+}
+function selectTextarea(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.focus(); el.select();
+  try { el.setSelectionRange(0, el.value.length); } catch (e) {}
+  showToast("全選択しました！ そのままコピーできます");
+}
+
+function exportSaveSpell() {
+  const json = JSON.stringify(state);
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  const el = document.getElementById("save-spell-box");
+  if (el) el.value = b64;
+  copyTextSafe(b64, "📤 復活の呪文を書き出してコピーしました！");
+}
+function importSaveSpell() {
+  const raw = (document.getElementById("save-spell-box")?.value || "").trim();
+  if (!raw) { showToast("復活の呪文を貼り付けてね！"); return; }
+  try {
+    const parsed = raw.startsWith("{") ? JSON.parse(raw) : JSON.parse(decodeURIComponent(escape(atob(raw))));
+    state = Object.assign(createDefaultState(), parsed);
+    migrateStateIfNeeded(state);
+    saveState();
+    renderAll();
+    showToast("📥 復活の呪文からデータを復元しました！");
+  } catch (e) {
+    showToast("⚠️ 呪文の形式が正しくありません");
+  }
 }
 
 let toastTimer = null;
 function showToast(msg) {
   const t = document.getElementById("toast");
+  if (!t) return;
   clearTimeout(toastTimer);
   t.textContent = msg;
   t.classList.add("show");
-  toastTimer = setTimeout(() => t.classList.remove("show"), 2800);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
 }
 
-// Bootstrap
-loadState();
-renderAll();
+// ============================================================
+// 10. TAB RENDERERS
+// ============================================================
+function renderHeader() {
+  document.body.classList.toggle("theme-lamp", state.theme === "lamp");
+  document.getElementById("btn-theme-toggle").textContent = state.theme === "lamp" ? "🕯️ ランプ光" : "☀️ 昼光";
+  document.getElementById("ui-shop-title").innerHTML = `💎 ${esc(state.shopName)} <span style="font-size:10px;opacity:0.75;">v0.4</span>`;
+  const remain = Math.max(0, state.totalTurns - state.turn);
+  document.getElementById("ui-date-sub").textContent = `3年生・${getCalendarLabel(state.turn)}（残り ${remain} ターン／卒業まで）`;
+  document.getElementById("ui-health").textContent = state.health + "%";
+  document.getElementById("ui-pressure").textContent = state.magicPressure + "%";
+  document.getElementById("ui-gold").textContent = state.gold.toLocaleString() + " G";
+  document.getElementById("ui-shelf-cnt").textContent = `${state.shelf.length} / 8`;
+
+  const b = state.boundary;
+  const bLabel = b <= 35 ? `境界値 ${b}（人間の輪郭が濃い）` : (b >= 65 ? `境界値 ${b}（グラフト・人外へ傾く）` : `境界値 ${b}（均衡）`);
+  document.getElementById("ui-boundary-label").textContent = bLabel;
+  document.getElementById("ui-boundary-marker").style.left = b + "%";
+}
+
+function renderHomeTab() {
+  const el = document.getElementById("tab-home");
+  if (!el) return;
+  const chars = getCharactersMaster();
+  const focus = chars.find(c => c.id === state.selectedFocus) || chars[0];
+  const focusLocked = !!focus.lockedUntilLoop2 && !isCassiusOpen();
+  const focusSt = state.characters[focus.id] || { affection: 0 };
+
+  const actionHtml = ACTIONS.filter(a => !a.requiresCassius || isCassiusOpen()).map(a => `
+    <button class="opt-btn ${state.selectedAction === a.id ? 'active' : ''}" onclick="setAction('${a.id}')">
+      <strong>${esc(a.name)}</strong>
+      <span>${esc(a.desc)}</span>
+    </button>
+  `).join("");
+
+  const focusChips = chars.filter(c => c.id !== "protagonist" && (!c.lockedUntilLoop2 || isCassiusOpen())).map(c => `
+    <button class="chip ${state.selectedFocus === c.id ? 'active' : ''}" onclick="setFocusChar('${c.id}')">${esc(c.name)}</button>
+  `).join("");
+
+  const moodChips = MOOD_CHIPS.map(m => `
+    <button class="chip ${state.selectedMood === m ? 'active' : ''}" onclick="setMood('${esc(m)}')">${esc(m)}</button>
+  `).join("");
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="home-hero">
+        <div class="portrait-frame" onclick="openPortraitZoom('${focus.id}')" title="タップで立ち絵拡大">
+          ${renderPortraitHTML(focus, focusLocked)}
+          <div class="portrait-badge">${esc(focus.name)} 💕${focusSt.affection}</div>
+        </div>
+        <div>
+          <span class="season-tag">🗓️ ${esc(getCalendarLabel(state.turn))}</span>
+          <div style="font-size:15px;font-weight:900;margin:6px 0 4px;">${esc(state.protagonistName)}の残り1年</div>
+          <div class="sub-text" style="line-height:1.6;">
+            亡き祖母マルタから受け継いだ小さな店。ソファーで使い捨て魔法石を編みながら、卒業というタイムリミットまで誰とどう過ごすかを選ぼう。
+          </div>
+          <div style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn-secondary" style="font-size:11px;padding:6px 9px;" onclick="openCharModal('${focus.id}')">💕 詳細・秘密</button>
+            <button class="btn-secondary" style="font-size:11px;padding:6px 9px;" onclick="switchTab('craft')">💎 排熱クラフトへ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>🎭 進行スタイル</span></div>
+      <div class="mode-grid">
+        <button class="opt-btn ${state.mode === 'jikkuri' ? 'active' : ''}" onclick="setMode('jikkuri')">
+          <strong>📖 じっくりADVモード</strong>
+          <span>途中で3択＋自由入力の掛け合いを楽しむ</span>
+        </button>
+        <button class="opt-btn ${state.mode === 'sakusaku' ? 'active' : ''}" onclick="setMode('sakusaku')">
+          <strong>⚡ サクサク定期モード</strong>
+          <span>1往復で今期のイベントを綺麗に完結</span>
+        </button>
+      </div>
+
+      <div class="card-title" style="margin-top:4px;"><span>🧭 今期の行動先</span></div>
+      <div class="action-grid">${actionHtml}</div>
+
+      <div class="field-label">💕 今期の注目キャラ</div>
+      <div class="chip-row">${focusChips}</div>
+
+      <div class="field-label">💭 ${esc(state.protagonistName)}の気分</div>
+      <div class="chip-row">${moodChips}</div>
+
+      <div class="field-label">✍️ AIへのひとことメモ（任意：話したい話題・やりたい展開など）</div>
+      <input type="text" class="input-field" value="${esc(state.memo)}" oninput="onMemoChange(this.value)" placeholder="例：雨の夜、ソファーでうたた寝していたら誰かが訪ねてくる展開にしたい">
+
+      <button class="btn-gold" style="width:100%;margin-top:11px;" onclick="switchTab('bridge'); copyTextSafe(buildGMDeclaration(), '📋 今期の行動宣言をコピーしました！AIチャットに貼って遊んでね✨');">
+        📋 今期の行動宣言をコピーして AI-ADV へ →
+      </button>
+    </div>
+  `;
+}
+
+function renderCraftTab() {
+  const el = document.getElementById("tab-craft");
+  if (!el) return;
+
+  const shapeBtns = STONE_SHAPES.map(s => `
+    <button class="opt-btn ${state.craftShape === s.id ? 'active' : ''}" style="align-items:center;padding:6px;" onclick="setCraftShape('${s.id}')">
+      ${renderGemSVG(s.id, state.craftColor, 34)}
+      <span style="font-size:10.5px;">${s.name}</span>
+    </button>
+  `).join("");
+
+  const swatches = STONE_COLORS.map(c => `
+    <button class="swatch ${state.craftColor === c.hex ? 'active' : ''}" style="background:${c.hex};" title="${c.name}" onclick="setCraftColor('${c.hex}')"></button>
+  `).join("");
+
+  const presetChips = STONE_PRESETS.map((p, i) => `
+    <button class="chip" onclick="applyPresetStone(${i})">✨ ${esc(p.name)}</button>
+  `).join("");
+
+  const shelfHtml = state.shelf.length
+    ? state.shelf.map(s => `
+        <div class="stone-card">
+          <div class="stone-svg-box">${renderGemSVG(s.shape, s.color, 44)}</div>
+          <div style="font-size:12.5px;font-weight:800;">${esc(s.name)}</div>
+          <div class="sub-text" style="font-size:10.5px;">${s.uses}回使い切り ／ <strong style="color:var(--accent);">${s.price} G</strong></div>
+          <div class="sub-text" style="font-size:11px;flex:1;">${esc(s.effect)}</div>
+          <button class="btn-danger" style="font-size:10.5px;padding:5px;" onclick="removeShelfItem('${s.id}')">棚から下げる</button>
+        </div>
+      `).join("")
+    : `<div class="sub-text" style="grid-column:1/-1;text-align:center;padding:14px;">棚は空っぽです。ソファーで使い捨て魔法石を編んで並べよう！</div>`;
+
+  const reqHtml = state.requests.length
+    ? state.requests.map(r => `
+        <div class="req-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">
+            <strong style="font-size:13px;color:var(--accent);">📌 ${esc(r.title)}</strong>
+            <span style="font-size:11px;font-weight:800;color:var(--ok);">報酬 +${r.reward} G</span>
+          </div>
+          <div class="sub-text" style="margin:3px 0 6px;">依頼主：${esc(r.client)} ／ キーワード：${esc(r.hint)}<br>${esc(r.detail)}</div>
+          <button class="btn-primary" style="width:100%;padding:7px;font-size:12px;" onclick="fulfillRequest('${r.id}')">🛋️ ソファーで即興作成＆アレク経由で納品（魔力圧 -16%）</button>
+        </div>
+      `).join("")
+    : `<div class="sub-text">いま来ている特注リクエストはありません。</div>`;
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-title"><span>💎 ソファーで排熱クラフト（使い捨て魔法石）</span><span class="sub-text">作成で魔力圧 -14%</span></div>
+      <div class="sub-text" style="margin-bottom:8px;">
+        指定回数使うと砕け散る実用魔法石を編んで魔力の毒を逃がします。定番プリセットから選ぶか自由に作ってね！
+      </div>
+      <div class="chip-row">${presetChips}</div>
+      <div class="shape-row">${shapeBtns}</div>
+      <div class="swatch-row"><span class="sub-text" style="font-size:11px;">色：</span>${swatches}</div>
+      <div style="display:grid;grid-template-columns:1.6fr 0.7fr 0.8fr;gap:6px;margin-bottom:8px;">
+        <div><label class="field-label">石の名前</label><input id="craft-name" class="input-field" value="灯りの欠片石" maxlength="24"></div>
+        <div><label class="field-label">回数</label><input id="craft-uses" type="number" class="input-field" value="5" min="1" max="20"></div>
+        <div><label class="field-label">価格(G)</label><input id="craft-price" type="number" class="input-field" value="220" min="50" max="9999"></div>
+      </div>
+      <div style="margin-bottom:9px;">
+        <label class="field-label">効能・特徴</label>
+        <input id="craft-effect" class="input-field" value="松明代わりに手元を照らし、使い切るとさらさら砕け散る。" maxlength="100">
+      </div>
+      <button class="btn-gold" style="width:100%;" onclick="craftStone()">✨ 結晶化してショーケースへ並べる</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>🛍️ 店先のショーケース棚（${state.shelf.length} / 8）</span></div>
+      <div class="shelf-grid">${shelfHtml}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>📋 ニッチ特注リクエスト掲示板</span><span class="sub-text">アレクたちが店頭で受注</span></div>
+      ${reqHtml}
+    </div>
+  `;
+}
+
+function renderCharsTab() {
+  const el = document.getElementById("tab-chars");
+  if (!el) return;
+  const chars = getCharactersMaster();
+  const cards = chars.map(ch => {
+    const locked = !!ch.lockedUntilLoop2 && !isCassiusOpen();
+    const st = state.characters[ch.id] || { affection: 0, unlockedSecrets: [0] };
+    return `
+      <div class="char-card ${locked ? 'locked' : ''}">
+        <div class="portrait-frame" onclick="openCharModal('${ch.id}')">
+          ${renderPortraitHTML(ch, locked)}
+          <div class="portrait-badge">${locked ? "？？？" : esc(ch.name)}</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);">${locked ? "2周目真相枠（未解禁）" : esc(ch.role)}</div>
+        ${!locked ? `
+          <div style="font-size:11px;font-weight:800;display:flex;justify-content:space-between;">
+            <span>💕 親愛 ${st.affection}</span>
+            <span>🗝️ 秘密 ${st.unlockedSecrets.length}/${ch.secrets.length}</span>
+          </div>
+          <div class="aff-bar-bg"><div class="aff-bar-fill" style="width:${st.affection}%"></div></div>
+          <div style="display:flex;gap:5px;margin-top:2px;">
+            <button class="btn-secondary" style="flex:1;font-size:10.5px;padding:6px 4px;" onclick="openCharModal('${ch.id}')">詳細</button>
+            <button class="btn-primary" style="flex:1;font-size:10.5px;padding:6px 4px;" onclick="triggerPortraitUpload('${ch.id}')">🖼️ 3:4</button>
+          </div>
+        ` : `<button class="btn-secondary" style="font-size:11px;padding:6px;" onclick="openCharModal('${ch.id}')">🔒 解禁条件を見る</button>`}
+      </div>
+    `;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-title"><span>💕 登場人物＆3:4立ち絵ギャラリー</span></div>
+      <div class="sub-text" style="margin-bottom:10px;">
+        各キャラに手持ちの画像を <strong>3:4 立ち絵クロッパー</strong>で拡大・位置調整して設定できます（端末内のみに保存）。昼光⇔ランプ光でアレクの宝石アイコンも変色！
+      </div>
+      <div class="char-grid">${cards}</div>
+    </div>
+  `;
+}
+
+function renderBridgeTab() {
+  const el = document.getElementById("tab-bridge");
+  if (!el) return;
+  const promptText = buildGMDeclaration();
+  const prevReturn = document.getElementById("bridge-return-input")?.value || "";
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-title"><span>📤 ステップ1：AIへ渡す行動宣言プロンプト</span></div>
+      <div class="sub-text" style="margin-bottom:8px;">
+        下の枠をコピーして、いつものAIチャット（Gemini / Claude等）に貼り付けてね！ Googleサイト等でコピーボタンが効かない場合は「全選択」から手動コピーできます。
+      </div>
+      <textarea id="bridge-prompt-box" class="code-box" readonly>${esc(promptText)}</textarea>
+      <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:8px;margin-top:8px;">
+        <button class="btn-gold" onclick="copyTextSafe(document.getElementById('bridge-prompt-box').value, '📋 行動宣言プロンプトをコピーしました！')">📋 行動宣言をコピー</button>
+        <button class="btn-secondary" onclick="selectTextarea('bridge-prompt-box')">🔍 全選択（手動用）</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>📥 ステップ2：AIの返答ログを貼り戻す</span></div>
+      <div class="sub-text" style="margin-bottom:8px;">
+        AIから返ってきた小説本文＋末尾の <code>[EPHEMERA_RESULT]...[/EPHEMERA_RESULT]</code> を丸ごとここに貼って「反映＆保存」を押すと、ステータス・親愛度・回想アルバムへ自動反映されます。
+      </div>
+      <textarea id="bridge-return-input" class="code-box" placeholder="ここにAIからのADV返答ログを丸ごと貼り付け...">${esc(prevReturn)}</textarea>
+      <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:8px;margin-top:8px;">
+        <button class="btn-primary" onclick="applyAILog()">✨ ログを反映＆アルバム保存</button>
+        <button class="btn-secondary" onclick="fillDummyADVTest()">🧪 ダミー反映テスト</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderAlbumTab() {
+  const el = document.getElementById("tab-album");
+  if (!el) return;
+  const chars = getCharactersMaster();
+  let list = state.album.slice();
+  if (albumFavOnly) list = list.filter(a => a.favorite);
+  if (albumFilter !== "all") list = list.filter(a => a.focusChar === albumFilter);
+
+  const fltChips = [`<button class="chip ${albumFilter==='all'?'active':''}" onclick="albumFilter='all'; renderAlbumTab();">すべて</button>`]
+    .concat(chars.filter(c => c.id !== "protagonist" && (!c.lockedUntilLoop2 || isCassiusOpen())).map(c =>
+      `<button class="chip ${albumFilter===c.id?'active':''}" onclick="albumFilter='${c.id}'; renderAlbumTab();">${esc(c.name)}</button>`
+    )).join("");
+
+  const itemsHtml = list.length
+    ? list.map(a => `
+        <div class="album-item" style="cursor:pointer;" onclick="openAlbumModal('${a.id}')">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+            <strong style="color:var(--accent);font-size:13.5px;">${a.favorite ? "★ " : ""}${esc(a.title)}</strong>
+            <span class="sub-text" style="font-size:10.5px;">${esc(a.dateLabel)}</span>
+          </div>
+          <div class="sub-text" style="margin-top:5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${esc(a.text)}</div>
+        </div>
+      `).join("")
+    : `<div class="sub-text" style="text-align:center;padding:18px;">まだ回想ログがありません。「🎭 AI-ADV」で最初のターンを回して保存してみてね！</div>`;
+
+  const endHtml = state.endings.length
+    ? `<div class="card"><div class="card-title"><span>🏆 到達したエンディング（${state.endings.length}）</span></div>` +
+      state.endings.map(e => `<div class="glossary-item"><strong>✨ ${esc(e.title)}</strong><span class="sub-text">到達日：${esc(e.date)} ／ 境界値 ${e.boundary}</span></div>`).join("") +
+      `</div>`
+    : "";
+
+  el.innerHTML = `
+    ${endHtml}
+    <div class="card">
+      <div class="card-title">
+        <span>📖 回想アルバム（${state.album.length}件）</span>
+        <button class="chip ${albumFavOnly?'active':''}" onclick="albumFavOnly=!albumFavOnly; renderAlbumTab();">★ お気に入りのみ</button>
+      </div>
+      <div class="chip-row">${fltChips}</div>
+      ${itemsHtml}
+    </div>
+  `;
+}
+
+function renderGuideTab() {
+  const el = document.getElementById("tab-guide");
+  if (!el) return;
+  const pName = esc(state.protagonistName);
+  const rName = esc(state.rivalName);
+  const shop = esc(state.shopName);
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-title"><span>📖 物語の導入（はじめての方へ）</span></div>
+      <div class="callout">
+        魔力は魔法使いの身体を静かに蝕む毒でもある。強すぎる魔力を持って生まれた<strong>${pName}</strong>は、幼い頃から魔法学院と併設病院を行き来する「国の宝（という名の鳥籠）」の中で育ち、卒業とほぼ同じ頃に命が尽きる――余命1年と告げられている。<br><br>
+        1年時に学科首席「青いローブ＋金の縁取り」を真っ先に勝ち取り、命を繋ぐか否かを自分で選べる切符だけを手に入れたあと、彼女は2年時の席を誰かへ譲った。そして最後の1年、亡き祖母<strong>マルタ</strong>（かつて祝福の魔法のお菓子を売っていた優しい魔法使い）から受け継いだ小さな店<strong>『${shop}』</strong>を開き、店のソファーで寛ぎながら使い捨て魔法石を編んでいる。<br><br>
+        この世界には、人々の強い想いを吸って姿を得た宝石――<strong>ヒューマニックストーン</strong>が存在する。彼らと心を通わせ、メンテナンス時は無防備な「ただの石」へ戻る命を預かりながら、彼女は卒業の日までに「人間のまま終わるか、呪物を臓器として迎え入れて永遠を生きるか」の選択へ向かっていく。
+      </div>
+      <div class="sub-text">
+        <strong>🎮 遊び方（3ステップ）：</strong><br>
+        ①「🏠 ホーム」で今期の行動と注目キャラを選び、「💎 排熱/棚」でソファーから魔法石を編む。<br>
+        ②「🎭 AI-ADV」で行動宣言プロンプトをコピーし、いつものAIチャットへ貼ってイベントを楽しむ。<br>
+        ③ AIから返ってきた小説＆結果JSONを貼り戻すと、親愛度・境界値・回想アルバムが育ちます！
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>📚 世界観・用語辞典</span></div>
+      <div class="glossary-item"><strong>ヒューマニックストーン</strong>人々の強い想いを吸って意識と姿を得た宝石。想いの総量が多いほど人型に近い傾向があるが、ルークのように「手足になって守りたい」という切実な願いからペガサス等の姿を選ぶことも。天然石ゆえ完璧ではなく、クラック充填やシールドコーティングの定期メンテナンスが不可欠。施術中は無防備な『ただの石』に戻って宝石魔術師へ身を委ねる必要がある。</div>
+      <div class="glossary-item"><strong>使役契約（通常契約）</strong>ヒューマニックストーンが「お前の命のある期間だけ付き合ってやる」と結ぶ有限の契約（アレク、アルカ＆ディア等）。寿命自体は延びない。</div>
+      <div class="glossary-item"><strong>グラフト契約（Graft）</strong>人間側が外観等の大事なものを対価に差し出し、宝物庫のいわくつき呪物を臓器（ドナー）として体内に組み込み命を繋ぐ契約。適合に失敗すればその場で吹き飛び死する。生き延びても異形化するため、世間からは畏怖されつつも「グラフトだから気持ち悪い」等と忌み嫌われる。</div>
+      <div class="glossary-item"><strong>青いローブと金の縁取り</strong>宝物庫へ入るための成績優秀者の証（青＝宝石魔法学科、金縁＝首席）。余命宣告を受けた学生にとっては生き残るための椅子取りゲーム。${pName}は1年時に取得し2年時は譲ったため、2年時首席の${rName}は不戦勝の金縁に納得していない。</div>
+      <div class="glossary-item"><strong>併設病院と国家管理（立ち入り制限）</strong>強魔力者は他国流出防止のため国の管理下に置かれる。宝物庫由来のアレクは病室へ付き添えるが、学院関係者ではないエリック＆ルークは病院へ立ち入れない。例外として国へ正式な婚姻申請をすればエリックは家族として入室可能だが、ルークは宝石の姿に戻って待機する必要がある。</div>
+      <div class="glossary-item"><strong>使い捨て魔法石（排熱クラフト）</strong>指定回数使うと砕け散る実用石（灯り石、ポーション代わりの回復石、雨漏り詰め石や犬用の喋る迷子札など）。${pName}がソファーでゴロゴロしながら編むことで体内の魔力圧を逃がしている。</div>
+      <div class="glossary-item"><strong>呪いの蒼玉『ブルー・ウィドウ』</strong>身につけた者をことごとく不幸にした呪いのブルーダイヤ。仮面の講師カシウスが片目にグラフトしている（2周目真相枠で深掘り）。</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>⚙️ カスタマイズ設定</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div><label class="field-label">主人公の名前</label><input id="set-pname" class="input-field" value="${esc(state.protagonistName)}" maxlength="18"></div>
+        <div><label class="field-label">同級生の名前</label><input id="set-rname" class="input-field" value="${esc(state.rivalName)}" maxlength="18"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px;margin-bottom:10px;">
+        <div><label class="field-label">お店の名前</label><input id="set-shop" class="input-field" value="${esc(state.shopName)}" maxlength="28"></div>
+        <div>
+          <label class="field-label">1年間の長さ</label>
+          <select id="set-turns" class="select-field">
+            <option value="24" ${state.totalTurns===24?'selected':''}>しっかり（24ターン）</option>
+            <option value="12" ${state.totalTurns===12?'selected':''}>あっさり（12ターン）</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-gold" style="width:100%;margin-bottom:8px;" onclick="saveSettings()">💾 名前・ターン設定を保存</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-secondary" style="flex:1;" onclick="toggleCassiusManual()">${isCassiusOpen() ? "🔓 2周目カシウス：解禁済（切替）" : "🗝️ 2周目カシウスを今すぐ解禁"}</button>
+        <button class="btn-primary" style="flex:1;" onclick="startNextLoop()">🌸 2周目（4月）を始める</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>💾 復活の呪文（セーブ＆Googleサイト対策）</span></div>
+      <div class="sub-text" style="margin-bottom:8px;">
+        通常はブラウザに自動保存されますが、Googleサイト埋め込み等で保存が消える環境では、下の「復活の呪文」をメモ帳へ控えておくと安全です。
+      </div>
+      <textarea id="save-spell-box" class="code-box" style="min-height:80px;" placeholder="書き出した呪文、または復元したい呪文を貼り付け"></textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr 0.7fr;gap:6px;margin-top:8px;">
+        <button class="btn-primary" onclick="exportSaveSpell()">📤 呪文書き出し</button>
+        <button class="btn-gold" onclick="importSaveSpell()">📥 呪文から復元</button>
+        <button class="btn-danger" onclick="hardResetAll()">🗑️ 初期化</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderAll() {
+  renderHeader();
+  renderHomeTab();
+  renderCraftTab();
+  renderCharsTab();
+  renderBridgeTab();
+  renderAlbumTab();
+  renderGuideTab();
+}
+
+// ============================================================
+// 11. BOOTSTRAP
+// ============================================================
+(async function init() {
+  loadState();
+  await loadPortraits();
+  renderAll();
+})();
 </script>
 </body>
 </html>
